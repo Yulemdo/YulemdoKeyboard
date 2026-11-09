@@ -166,7 +166,7 @@ class KeyboardView @JvmOverloads constructor(
                 keyRects[k] = RectF(x, y, x + w, y + rowHeightPx)
                 x += w + colGapPx
                 // 1-qatordagi birinchi 10 ta harfga raqam ishorasi
-                if (r == 0 && i < 10 && !k.isSpecial) hints[k] = ((i + 1) % 10).toString()
+                if (r == 0 && i < 10 && !k.isSpecial && k.label.firstOrNull()?.isLetter() == true) hints[k] = ((i + 1) % 10).toString()
             }
         }
     }
@@ -326,7 +326,7 @@ class KeyboardView @JvmOverloads constructor(
         if (key.code == SpecialCodes.SPACE) return ""
         if (key.isSpecial) {
             return when (key.code) {
-                SpecialCodes.SYMBOLS -> "?123"
+                SpecialCodes.SYMBOLS -> "123"
                 SpecialCodes.LETTERS -> "ABC"
                 else -> key.label
             }
@@ -335,14 +335,53 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     // ===== Touch =====
+    private val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var repeatCount = 0
+    private var backspaceHeld = false
+
+    // Backspace bosib turilsa: 0.4s dan keyin ketma-ket o'chiradi, keyin tezlashadi
+    private val repeatRunnable = object : Runnable {
+        override fun run() {
+            val k = pressedKey ?: return
+            if (!backspaceHeld || k.code != SpecialCodes.BACKSPACE) return
+            onKeyPressed?.invoke(k)
+            repeatCount++
+            repeatHandler.postDelayed(this, if (repeatCount > 12) 30L else 65L)
+        }
+    }
+
+    private fun stopRepeat() {
+        repeatHandler.removeCallbacks(repeatRunnable)
+        backspaceHeld = false
+        repeatCount = 0
+    }
+
+    override fun onDetachedFromWindow() {
+        stopRepeat()
+        super.onDetachedFromWindow()
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+            MotionEvent.ACTION_DOWN -> {
                 val key = findKeyAt(event.x, event.y)
-                if (event.actionMasked == MotionEvent.ACTION_DOWN) downTime = event.eventTime
+                downTime = event.eventTime
+                stopRepeat()
+                pressedKey = key
+                if (key?.code == SpecialCodes.BACKSPACE) {
+                    backspaceHeld = true
+                    onKeyPressed?.invoke(key)
+                    repeatHandler.postDelayed(repeatRunnable, 400L)
+                }
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val key = findKeyAt(event.x, event.y)
                 if (key != pressedKey) {
+                    stopRepeat()
                     pressedKey = key
-                    if (event.actionMasked == MotionEvent.ACTION_MOVE) downTime = event.eventTime
+                    downTime = event.eventTime
                     invalidate()
                 }
                 return true
@@ -350,12 +389,13 @@ class KeyboardView @JvmOverloads constructor(
             MotionEvent.ACTION_UP -> {
                 val key = findKeyAt(event.x, event.y)
                 val held = event.eventTime - downTime
+                val wasBackspace = backspaceHeld
+                stopRepeat()
                 pressedKey = null
                 invalidate()
-                if (key != null) {
+                if (key != null && !wasBackspace) {
                     val hint = hints[key]
                     if (hint != null && held > 380) {
-                        // uzoq bosish -> raqam
                         onKeyPressed?.invoke(KeyData(label = hint, code = hint, row = key.row, col = key.col))
                     } else {
                         onKeyPressed?.invoke(key)
@@ -364,6 +404,7 @@ class KeyboardView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                stopRepeat()
                 pressedKey = null
                 invalidate()
                 return true
