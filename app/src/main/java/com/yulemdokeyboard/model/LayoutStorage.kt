@@ -48,6 +48,17 @@ object LayoutStorage {
         }
     }
 
+    /** Eski saqlangan layoutlarni yangi belgilarga (ö, ğ, ʼ, ikonkali tugmalar) o'tkazadi. */
+    private fun migrateKey(k: KeyData) {
+        when (k.code) {
+            "o\u02BB" -> { k.label = "ö"; k.code = "ö" }
+            "g\u02BB" -> { k.label = "ğ"; k.code = "ğ" }
+            "'" -> if (!k.isSpecial) { k.label = "\u02BC"; k.code = "\u02BC" }
+            "\uD83D\uDE42" -> { k.label = ""; k.code = SpecialCodes.EMOJI }
+            SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.ENTER, SpecialCodes.LANG_SWITCH -> k.label = ""
+        }
+    }
+
     private fun toJson(layout: KeyboardLayout): JSONObject {
         val obj = JSONObject()
         obj.put("name", layout.name)
@@ -84,6 +95,7 @@ object LayoutStorage {
                 )
             )
         }
+        keys.forEach { migrateKey(it) }
         return KeyboardLayout(
             name = obj.optString("name", "Custom"),
             rows = obj.optInt("rows", 4),
