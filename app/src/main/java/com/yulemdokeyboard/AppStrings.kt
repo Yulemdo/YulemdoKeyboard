@@ -44,6 +44,15 @@ object AppStrings {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_INTRO, true).apply()
     }
 
+    /**
+     * Yangi: foydalanuvchi "Tilni qayta tanlash" tugmasini bosganda chaqiriladi.
+     * intro_done belgisini o'chiradi, shunda IntroActivity yana til tanlash
+     * sahifasidan (0-sahifa) boshlanadi; MainActivity bu holatda Intro'ni qayta ochadi.
+     */
+    fun resetIntro(ctx: Context) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_INTRO, false).apply()
+    }
+
     fun pack(lang: String?): Pack = when (lang) {
         RU -> ru
         EN -> en
