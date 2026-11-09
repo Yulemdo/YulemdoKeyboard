@@ -3,7 +3,6 @@ package com.yulemdokeyboard.editor
 import android.content.ClipData
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -15,8 +14,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import com.yulemdokeyboard.R
+import com.yulemdokeyboard.Ui
 import com.yulemdokeyboard.model.KeyboardLayout
 import com.yulemdokeyboard.model.LayoutStorage
 import com.yulemdokeyboard.model.defaultUzbekLayout
@@ -24,11 +22,9 @@ import com.yulemdokeyboard.model.defaultUzbekLayout
 class LayoutEditorActivity : AppCompatActivity() {
 
     private lateinit var gridView: EditorGridView
-    private lateinit var paletteContainer: ViewGroup
     private lateinit var btnUndo: Button
     private lateinit var btnRedo: Button
 
-    // Palitra bo'limlarga ajratilgan: harflar, o'zbekka xos harflar, raqamlar, maxsus tugmalar
     private val letterSection = listOf(
         "q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
         "a", "s", "d", "f", "g", "h", "j", "k", "l",
@@ -40,103 +36,86 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_layout_editor)
+        val dp = resources.displayMetrics.density
 
-        // MUHIM: avval findViewById<EditorGridView> chaqirilgan edi, lekin XML'da bu oddiy FrameLayout —
-        // shu sababli ClassCastException bilan ilova yopilib qolardi. Endi umumiy View sifatida olinadi.
-        replaceGridFrameWithEditorGrid()
-        paletteContainer = resolvePaletteContainer()
-        buildPalette()
-        addUndoRedoButtons()
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = Ui.appBackground(this@LayoutEditorActivity)
+            setPadding((12 * dp).toInt(), (24 * dp).toInt(), (12 * dp).toInt(), (12 * dp).toInt())
+        }
+
+        // To'r (grid)
+        gridView = EditorGridView(this).apply {
+            background = Ui.glass(this@LayoutEditorActivity, 12)
+        }
+        root.addView(gridView, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // Palitra (vertikal, scroll)
+        val palette = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        addPaletteSection(palette, "Harflar", letterSection)
+        addPaletteSection(palette, "Özbekka xos", uzLetterSection)
+        addPaletteSection(palette, "Raqamlar", digitSection)
+        addPaletteSection(palette, "Belgilar", punctSection)
+        val paletteScroll = ScrollView(this).apply { addView(palette) }
+        root.addView(
+            paletteScroll,
+            LinearLayout.LayoutParams(-1, (190 * dp).toInt()).apply { topMargin = (8 * dp).toInt() }
+        )
+
+        // Pastki tugmalar
+        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun bar(label: String, fire: Boolean = false): Button =
+            Ui.button(this, label, fire).also {
+                bottom.addView(it, LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
+                    marginStart = (3 * dp).toInt()
+                    marginEnd = (3 * dp).toInt()
+                })
+            }
+        btnUndo = bar("↶ Ortga")
+        btnRedo = bar("↷ Oldinga")
+        val btnReset = bar("Reset")
+        val btnSave = bar("Saqlash", fire = true)
+        root.addView(
+            bottom,
+            LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (8 * dp).toInt()
+            }
+        )
+
+        setContentView(root)
 
         gridView.onHistoryChanged = { updateUndoRedoState() }
+        btnUndo.setOnClickListener { gridView.undo(); updateUndoRedoState() }
+        btnRedo.setOnClickListener { gridView.redo(); updateUndoRedoState() }
 
-        val saved = LayoutStorage.loadCustomLayout(this)
-        val start = saved ?: defaultUzbekLayout()
+        val start = LayoutStorage.loadCustomLayout(this) ?: defaultUzbekLayout()
         gridView.rows = start.rows
         gridView.cols = start.cols
-        gridView.post { gridView.loadKeys(start.keys) ; updateUndoRedoState() }
+        gridView.post { gridView.loadKeys(start.keys); updateUndoRedoState() }
 
-        findViewById<View>(R.id.btnReset).setOnClickListener {
+        btnReset.setOnClickListener {
             val def = defaultUzbekLayout()
             gridView.rows = def.rows
             gridView.cols = def.cols
-            gridView.loadKeys(def.keys) // yangi boshlanish - tarix tozalanadi
+            gridView.loadKeys(def.keys)
             gridView.invalidate()
             updateUndoRedoState()
             Toast.makeText(this, "Standart joylaşuv tiklandi", Toast.LENGTH_SHORT).show()
         }
 
-        findViewById<View>(R.id.btnSave).setOnClickListener {
+        btnSave.setOnClickListener {
             val keys = gridView.exportKeys()
             if (keys.isEmpty()) {
                 Toast.makeText(this, "Avval kamida bitta tugma joylaştiring", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val layout = KeyboardLayout(
-                name = "Mening klaviaturam",
-                rows = gridView.rows,
-                cols = gridView.cols,
-                keys = keys.toMutableList()
+            LayoutStorage.saveCustomLayout(
+                this,
+                KeyboardLayout("Mening klaviaturam", gridView.rows, gridView.cols, keys.toMutableList())
             )
-            LayoutStorage.saveCustomLayout(this, layout)
             LayoutStorage.setActiveLayout(this, "custom")
             Toast.makeText(this, "Saqlandi! Endi klaviaturada şu joylaşuv işlatiladi.", Toast.LENGTH_LONG).show()
         }
-    }
-
-    private fun replaceGridFrameWithEditorGrid() {
-        val oldFrame = findViewById<View>(R.id.gridFrame)
-        val parent = oldFrame.parent as ViewGroup
-        val index = parent.indexOfChild(oldFrame)
-        val lp = oldFrame.layoutParams
-        parent.removeView(oldFrame)
-
-        gridView = EditorGridView(this)
-        gridView.id = R.id.gridFrame
-        gridView.background = ContextCompat.getDrawable(this, R.drawable.bg_glass_button)
-        parent.addView(gridView, index, lp)
-    }
-
-    /** paletteContainer XML'da LinearLayout, HorizontalScrollView yoki ScrollView bo'lishidan qat'i nazar ishlaydi. */
-    private fun resolvePaletteContainer(): ViewGroup {
-        val v = findViewById<ViewGroup>(R.id.paletteContainer)
-        if (v is HorizontalScrollView || v is ScrollView) {
-            val child = v.getChildAt(0)
-            if (child is ViewGroup) return child
-            val ll = LinearLayout(this)
-            ll.orientation = if (v is HorizontalScrollView) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-            v.addView(ll)
-            return ll
-        }
-        return v
-    }
-
-    private fun buildPalette() {
-        // paletteContainer gorizontal bo'lishi mumkin edi — bo'limlar bilan vertikal ro'yxatga o'tkazamiz
-        val outerParent = paletteContainer.parent as? ViewGroup
-        val vertical = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        if (outerParent != null) {
-            val scrollWrapper = paletteContainer.parent
-            if (scrollWrapper is HorizontalScrollView) {
-                val idx = (scrollWrapper.parent as ViewGroup).indexOfChild(scrollWrapper)
-                val grandParent = scrollWrapper.parent as ViewGroup
-                val lp = scrollWrapper.layoutParams
-                grandParent.removeView(scrollWrapper)
-                grandParent.addView(vertical, idx, lp)
-            } else {
-                val idx = outerParent.indexOfChild(paletteContainer)
-                val lp = paletteContainer.layoutParams
-                outerParent.removeView(paletteContainer)
-                outerParent.addView(vertical, idx, lp)
-            }
-        }
-
-        addPaletteSection(vertical, "Harflar", letterSection)
-        addPaletteSection(vertical, "Özbekka xos", uzLetterSection)
-        addPaletteSection(vertical, "Raqamlar", digitSection)
-        addPaletteSection(vertical, "Belgilar", punctSection)
-        paletteContainer = vertical
     }
 
     private fun addPaletteSection(parent: LinearLayout, title: String, chars: List<String>) {
@@ -156,7 +135,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             val chip = TextView(this)
             chip.text = ch
             chip.setTextColor(Color.WHITE)
-            chip.background = glassChipDrawable()
+            chip.background = Ui.glass(this, 14)
             chip.gravity = Gravity.CENTER
             chip.textSize = 15f
             val params = LinearLayout.LayoutParams(sizePx, sizePx)
@@ -176,62 +155,6 @@ class LayoutEditorActivity : AppCompatActivity() {
         }
         scroll.addView(row)
         parent.addView(scroll)
-    }
-
-    private fun glassChipDrawable(): GradientDrawable {
-        val dp = resources.displayMetrics.density
-        return GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.parseColor("#3DFFFFFF"), Color.parseColor("#14FFFFFF"))
-        ).apply {
-            cornerRadius = 14 * dp
-            setStroke((1 * dp).toInt(), Color.parseColor("#33FFFFFF"))
-        }
-    }
-
-    /**
-     * Yangi: "Standartga qaytarish" / "Saqlash" tugmalari joylashgan qatorga
-     * Undo va Redo tugmalarini qo'shadi (XML o'zgartirilmaydi - dasturiy ravishda qo'shiladi).
-     */
-    private fun addUndoRedoButtons() {
-        val resetBtn = findViewById<View>(R.id.btnReset)
-        val bottomRow = resetBtn.parent as? ViewGroup ?: return
-        val dp = resources.displayMetrics.density
-
-        fun glassBtn(label: String): Button = Button(this).apply {
-            text = label
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(Color.parseColor("#3DFFFFFF"), Color.parseColor("#14FFFFFF"))
-            ).apply {
-                cornerRadius = 16 * dp
-                setStroke((1 * dp).toInt(), Color.parseColor("#33FFFFFF"))
-            }
-        }
-
-        btnUndo = glassBtn("↶ Ortga")
-        btnRedo = glassBtn("↷ Oldinga")
-
-        val lp = LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
-            marginStart = (6 * dp).toInt()
-            marginEnd = (6 * dp).toInt()
-        }
-
-        val resetIndex = bottomRow.indexOfChild(resetBtn)
-        bottomRow.addView(btnUndo, resetIndex, lp)
-        bottomRow.addView(btnRedo, resetIndex + 1, lp)
-
-        btnUndo.setOnClickListener {
-            gridView.undo()
-            updateUndoRedoState()
-        }
-        btnRedo.setOnClickListener {
-            gridView.redo()
-            updateUndoRedoState()
-        }
     }
 
     private fun updateUndoRedoState() {
