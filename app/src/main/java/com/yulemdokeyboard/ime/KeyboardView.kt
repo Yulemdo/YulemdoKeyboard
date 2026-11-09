@@ -1,6 +1,7 @@
 package com.yulemdokeyboard.ime
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -56,7 +57,13 @@ class KeyboardView @JvmOverloads constructor(
     // ===== Ranglar =====
     private val fireStart = Color.parseColor("#FFFF3D00")
     private val fireEnd = Color.parseColor("#FFFFC107")
-    private val iconColor = Color.parseColor("#E6FFFFFF")
+    // Mavzuga qarab (oq / qora) o'zgaradigan ranglar - refreshTheme() to'ldiradi
+    private var iconColor = Color.WHITE
+    private var keyFillColor = 0
+    private var specialFillColor = 0
+    private var pressedFillColor = 0
+    private var keyBorderColor = 0
+    private var accentColor = Color.parseColor("#FF6D00")
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -113,14 +120,46 @@ class KeyboardView @JvmOverloads constructor(
     private var pressedKey: KeyData? = null
     private var downTime = 0L
 
-    init {
-        try {
-            background = androidx.core.content.ContextCompat.getDrawable(
-                context, com.yulemdokeyboard.R.drawable.bg_app_gradient
-            )
-        } catch (e: Exception) {
-            setBackgroundColor(Color.parseColor("#0D0D0D"))
+    /** Telefon temasi: yorug' rejimda oq, qorong'i rejimda qora oddiy klaviatura. */
+    private fun refreshTheme() {
+        val night = isNight(context)
+        setBackgroundColor(backgroundColorFor(context))
+        if (night) {
+            keyFillColor = Color.parseColor("#2C2C2E")
+            specialFillColor = Color.parseColor("#1C1C1E")
+            pressedFillColor = Color.parseColor("#48484A")
+            keyBorderColor = Color.parseColor("#3A3A3C")
+            textPaint.color = Color.parseColor("#FFFFFF")
+            hintPaint.color = Color.parseColor("#8E8E93")
+            iconColor = Color.parseColor("#F2F2F7")
+            spacePaint.color = Color.parseColor("#AEAEB2")
+        } else {
+            keyFillColor = Color.WHITE
+            specialFillColor = Color.parseColor("#E3E5E8")
+            pressedFillColor = Color.parseColor("#C9CDD2")
+            keyBorderColor = Color.parseColor("#D3D6DA")
+            textPaint.color = Color.parseColor("#111111")
+            hintPaint.color = Color.parseColor("#8A8A8E")
+            iconColor = Color.parseColor("#2B2B2D")
+            spacePaint.color = Color.parseColor("#6B6B70")
         }
+        iconStroke.color = iconColor
+        iconFill.color = iconColor
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration?) {
+        super.onConfigurationChanged(newConfig)
+        refreshTheme()
+        invalidate()
+    }
+
+    companion object {
+        fun isNight(ctx: Context): Boolean =
+            (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+
+        fun backgroundColorFor(ctx: Context): Int =
+            if (isNight(ctx)) Color.parseColor("#101010") else Color.parseColor("#F2F3F5")
     }
 
     // ===== Qat'iy balandlik =====
@@ -186,35 +225,19 @@ class KeyboardView @JvmOverloads constructor(
         val isShiftActive = (key.code == SpecialCodes.SHIFT && shiftOn) || (highlightCode != null && key.code == highlightCode)
         val isPressed = key == pressedKey
 
-        if (isShiftActive) {
-            fillPaint.shader = LinearGradient(
-                rect.left, rect.top, rect.right, rect.bottom,
-                fireStart, fireEnd, Shader.TileMode.CLAMP
-            )
-        } else {
-            val base = when {
-                isPressed -> pressedShader
-                key.isSpecial -> specialShader
-                else -> normalShader
-            }
-            shaderMatrix.reset()
-            shaderMatrix.setScale(1f, rect.height())
-            shaderMatrix.postTranslate(0f, rect.top)
-            base.setLocalMatrix(shaderMatrix)
-            fillPaint.shader = base
+        // Sodda, tekis (gradientsiz) tugma
+        fillPaint.shader = null
+        fillPaint.color = when {
+            isShiftActive -> accentColor
+            isPressed -> pressedFillColor
+            key.isSpecial -> specialFillColor
+            else -> keyFillColor
         }
         canvas.drawRoundRect(rect, corner, corner, fillPaint)
-
-        // Yuqori yorug'lik chizig'i (glass effekti) va umumiy chegara
-        borderPaint.color = Color.parseColor("#2EFFFFFF")
-        canvas.drawRoundRect(rect, corner, corner, borderPaint)
-        canvas.save()
-        canvas.clipRect(rect.left, rect.top, rect.right, rect.top + rect.height() * 0.35f)
-        canvas.drawRoundRect(
-            RectF(rect.left + 0.5f * dp, rect.top + 0.5f * dp, rect.right - 0.5f * dp, rect.bottom),
-            corner, corner, highlightPaint
-        )
-        canvas.restore()
+        if (!isShiftActive) {
+            borderPaint.color = keyBorderColor
+            canvas.drawRoundRect(rect, corner, corner, borderPaint)
+        }
 
         val cx = rect.centerX()
         val cy = rect.centerY()
@@ -248,7 +271,6 @@ class KeyboardView @JvmOverloads constructor(
 
     // ===== Space ustidagi til nomi =====
     private val spacePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#B3FFFFFF")
         textAlign = Paint.Align.LEFT
         letterSpacing = 0.16f
         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -258,6 +280,8 @@ class KeyboardView @JvmOverloads constructor(
         letterSpacing = 0.05f
         typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
+
+    init { refreshTheme() }
 
     private fun drawSpaceLabel(c: Canvas, rect: RectF) {
         if (spaceLabel.isEmpty()) return

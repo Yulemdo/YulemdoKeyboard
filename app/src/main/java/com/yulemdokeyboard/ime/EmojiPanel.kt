@@ -41,13 +41,7 @@ class EmojiPanel(
 
     init {
         orientation = VERTICAL
-        try {
-            background = androidx.core.content.ContextCompat.getDrawable(
-                context, com.yulemdokeyboard.R.drawable.bg_app_gradient
-            )
-        } catch (e: Exception) {
-            setBackgroundColor(Color.parseColor("#0D0D0D"))
-        }
+        setBackgroundColor(KeyboardView.backgroundColorFor(context))
         scroll.isVerticalScrollBarEnabled = false
         scroll.overScrollMode = OVER_SCROLL_NEVER
         addView(scroll, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
