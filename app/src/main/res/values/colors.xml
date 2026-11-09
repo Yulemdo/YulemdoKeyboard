@@ -1,4 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Faqat launcher ikonkasi (mipmap-anydpi-v26) shu rangni ishlatadi -->
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="purple_500">#FFFF9800</color>
+    <color name="bg_dark">#FF000000</color>
 </resources>
