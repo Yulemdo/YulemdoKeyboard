@@ -1,11 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Eski nomlar (tema shularga havola qiladi) -> endi shisha (shaffof) ranglar -->
-    <color name="purple_500">#3DFFFFFF</color>
+    <!-- Asosiy -->
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="bg_page">#FF000000</color>
     <color name="bg_dark">#E60D0D0D</color>
+    <color name="purple_500">#3DFFFFFF</color>
 
-    <!-- Shisha palitrasi -->
+    <!-- Olov -->
+    <color name="fire_1">#FFFFC107</color>
+    <color name="fire_2">#FFFF9800</color>
+    <color name="fire_4">#FFFF3D00</color>
+
+    <!-- Matn -->
+    <color name="text_primary">#FFE8EAED</color>
+    <color name="text_secondary">#FFBDC1C6</color>
+
+    <!-- Shisha (shaffof) -->
     <color name="glass_fill">#26FFFFFF</color>
+    <color name="glass_fill_pressed">#40FFFFFF</color>
     <color name="glass_pressed">#40FFFFFF</color>
     <color name="glass_border">#33FFFFFF</color>
+
+    <!-- Ikonka foni -->
+    <color name="ic_launcher_background">#FF0D0D0D</color>
 </resources>
