@@ -141,13 +141,39 @@ class YulemdoInputMethodService : InputMethodService() {
         }
     }
 
+    // sh->ş, ch->ç, oʻ/o'->ö, gʻ/g'->ğ. Faqat uz tilida, harflar ketma-ket yozilganda ishlaydi.
+    private data class Digraph(val first: Char, val second: Char, val result: Char)
+    private val digraphs = listOf(
+        Digraph('s', 'h', 'ş'), Digraph('S', 'h', 'Ş'), Digraph('S', 'H', 'Ş'),
+        Digraph('c', 'h', 'ç'), Digraph('C', 'h', 'Ç'), Digraph('C', 'H', 'Ç'),
+        Digraph('o', '\u02BB', 'ö'), Digraph('o', '\'', 'ö'), Digraph('O', '\u02BB', 'Ö'), Digraph('O', '\'', 'Ö'),
+        Digraph('g', '\u02BB', 'ğ'), Digraph('g', '\'', 'ğ'), Digraph('G', '\u02BB', 'Ğ'), Digraph('G', '\'', 'Ğ')
+    )
+    private var lastChar: Char = ' '
+
+    private fun commitWithDigraphCheck(ic: android.view.inputmethod.InputConnection, text: String) {
+        if (lang == Languages.UZ && text.length == 1) {
+            val nextChar = text[0]
+            val match = digraphs.find { it.first == lastChar && it.second == nextChar }
+            if (match != null) {
+                ic.deleteSurroundingText(1, 0)
+                ic.commitText(match.result.toString(), 1)
+                lastChar = match.result
+                return
+            }
+        }
+        ic.commitText(text, 1)
+        lastChar = if (text.length == 1) text[0] else ' '
+    }
+
     private fun handleKey(key: KeyData) {
         val ic = currentInputConnection ?: return
         when (key.code) {
-            SpecialCodes.BACKSPACE -> deleteBackward()
+            SpecialCodes.BACKSPACE -> { deleteBackward(); lastChar = ' ' }
             SpecialCodes.ENTER -> {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                lastChar = ' '
             }
             SpecialCodes.SHIFT -> {
                 // 1 marta bosish: keyingi harf katta. Tez ikki marta bosish: CAPS LOCK. Caps paytida bosilsa o'chadi.
@@ -169,10 +195,10 @@ class YulemdoInputMethodService : InputMethodService() {
                 imm.showInputMethodPicker()
             }
             SpecialCodes.EMOJI, "\uD83D\uDE42" -> showEmoji()
-            SpecialCodes.SPACE -> ic.commitText(" ", 1)
+            SpecialCodes.SPACE -> { ic.commitText(" ", 1); lastChar = ' ' }
             else -> {
                 val text = if (shiftOn) key.code.uppercase() else key.code
-                ic.commitText(text, 1)
+                commitWithDigraphCheck(ic, text)
                 if (shiftOn && !capsLock) {
                     shiftOn = false
                     syncShift()
