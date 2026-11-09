@@ -1,7 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Bosh ekranda ikonka ostida ko'rinadigan qisqa nom -->
-    <string name="app_name">Keyboard</string>
-    <!-- Ilova ichida (sarlavha, sozlamalar ro'yxati va h.k.) ishlatiladigan to'liq nom -->
-    <string name="app_full_name">Yulemdo Keyboard</string>
-    <string name="editor_title">Klaviatura muharriri</string>
+    <!-- Xizmatning umumiy nomi (Sozlamalar > Til va kiritish ro'yxatida) -->
+    <string name="ime_label">Yulemdo Keyboard</string>
+
+    <!-- Har bir subtype (til) nomi - telefon tilidan qat'i nazar har doim
+         o'sha tilning o'zida, ilova alifbosidagi qat'iylikka mos yoziladi -->
+    <string name="label_subtype_uz">Özbekça</string>
+    <string name="label_subtype_kaa">Qaraqalpaqsha</string>
+    <string name="label_subtype_en">English</string>
+    <string name="label_subtype_ru">Русский</string>
 </resources>
