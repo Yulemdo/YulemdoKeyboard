@@ -438,8 +438,8 @@ class KeyboardView @JvmOverloads constructor(
         val k = previewKey ?: return@Runnable
         val h = hints[k] ?: return@Runnable
         if (pressedKey != k) return@Runnable
-        // Pop-up raqamga almashadi va raqam darhol yoziladi
-        updatePreviewText(h, accentColor)
+        // Samsung kabi pop-up: [harf | raqam], raqam olov rangda ajralib turadi. Raqam darhol yoziladi
+        showHintPopup(k, h)
         longPressConsumed = true
         performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
         onKeyPressed?.invoke(KeyData(label = h, code = h, row = k.row, col = k.col))
@@ -476,7 +476,75 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    private var hintPopup: PopupWindow? = null
+
+    private fun dismissHint() {
+        try { hintPopup?.dismiss() } catch (e: Exception) { }
+        hintPopup = null
+    }
+
+    private fun showHintPopup(key: KeyData, number: String) {
+        val rect = keyRects[key] ?: return
+        if (windowToken == null) return
+        try {
+            try { previewPopup?.dismiss() } catch (e: Exception) { }
+            dismissHint()
+            val night = isNight(context)
+            val cellW = (50f * dp).toInt()
+            val cellH = (58f * dp).toInt()
+            val pad = (4f * dp).toInt()
+            val box = android.widget.LinearLayout(context).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                setPadding(pad, pad, pad, pad)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 16f * dp
+                    setColor(if (night) Color.parseColor("#2C2C2E") else Color.WHITE)
+                    setStroke((1f * dp).toInt(), if (night) Color.parseColor("#55FFFFFF") else Color.parseColor("#D3D6DA"))
+                }
+                elevation = 8f * dp
+            }
+            fun cell(t: String, highlighted: Boolean) = TextView(context).apply {
+                text = t
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+                if (highlighted) {
+                    setTextColor(Color.WHITE)
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    background = GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR, intArrayOf(fireStart, fireEnd)
+                    ).apply { cornerRadius = 12f * dp }
+                } else {
+                    setTextColor(textPaint.color)
+                }
+            }
+            val letter = if (shiftOn) key.label.uppercase() else key.label
+            box.addView(cell(letter, false), android.widget.LinearLayout.LayoutParams(cellW, cellH))
+            box.addView(cell(number, true), android.widget.LinearLayout.LayoutParams(cellW, cellH))
+
+            val w = cellW * 2 + pad * 2
+            val h = cellH + pad * 2
+            val loc = IntArray(2)
+            getLocationOnScreen(loc)
+            val screenW = resources.displayMetrics.widthPixels
+            val margin = (4f * dp).toInt()
+            val x = (loc[0] + rect.centerX() - w / 2f).toInt().coerceIn(margin, screenW - w - margin)
+            val y = (loc[1] + rect.top - h - 4f * dp).toInt().coerceAtLeast(0)
+            hintPopup = PopupWindow(box, w, h, false).apply {
+                isTouchable = false
+                isFocusable = false
+                isClippingEnabled = false
+                inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+                animationStyle = 0
+                showAtLocation(this@KeyboardView, Gravity.NO_GRAVITY, x, y)
+            }
+        } catch (e: Exception) {
+            // pop-up chiqmasa ham raqam yoziladi
+        }
+    }
+
     private fun showPreview(key: KeyData?) {
+        dismissHint()
         previewHandler.removeCallbacks(hintPreviewRunnable)
         previewKey = key
         if (key == null || key.isSpecial || key.label.isEmpty()) { hidePreview(); return }
@@ -501,6 +569,7 @@ class KeyboardView @JvmOverloads constructor(
     private fun hidePreview() {
         previewHandler.removeCallbacks(hintPreviewRunnable)
         previewKey = null
+        dismissHint()
         try { previewPopup?.dismiss() } catch (e: Exception) { }
     }
 
