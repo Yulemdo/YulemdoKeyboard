@@ -24,7 +24,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         "q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
         "a", "s", "d", "f", "g", "h", "j", "k", "l",
         "z", "x", "c", "v", "b", "n", "m",
-        "oʻ", "gʻ", "sh", "ch", "ng"
+        "ö", "ğ", "ç", "ş", "\u02BC"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
