@@ -64,7 +64,7 @@ fun defaultUzbekLayout(): KeyboardLayout {
     keys.add(KeyData(".", ".", row = 3, col = 8))
     keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 9, width = 1.6f, isSpecial = true))
 
-    return KeyboardLayout(name = "O'zbek (standart)", rows = 4, cols = 11, keys = keys)
+    return KeyboardLayout(name = "Özbek (standart)", rows = 4, cols = 11, keys = keys)
 }
 
 private fun symbolsPage(
