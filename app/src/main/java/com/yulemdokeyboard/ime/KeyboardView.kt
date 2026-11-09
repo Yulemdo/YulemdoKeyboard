@@ -10,6 +10,11 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.widget.PopupWindow
+import android.widget.TextView
+import android.util.TypedValue
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -419,6 +424,80 @@ class KeyboardView @JvmOverloads constructor(
         return if (shiftOn) key.label.uppercase() else key.label
     }
 
+    // ===== Bosilgan harf ustida kichik pop-up (preview) =====
+    private var previewPopup: PopupWindow? = null
+    private var previewText: TextView? = null
+    private val previewW = (54f * dp).toInt()
+    private val previewH = (64f * dp).toInt()
+    private val previewHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var previewKey: KeyData? = null
+
+    // Uzoq bosilganda (380ms) pop-up raqamga almashadi - nima yozilishini oldindan ko'rsatadi
+    private val hintPreviewRunnable = Runnable {
+        val k = previewKey ?: return@Runnable
+        val h = hints[k] ?: return@Runnable
+        updatePreviewText(h, accentColor)
+    }
+
+    private fun ensurePreview(): PopupWindow {
+        previewPopup?.let { return it }
+        val tv = TextView(context).apply {
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 14f * dp
+                setColor(if (isNight(context)) Color.parseColor("#3A3A3C") else Color.WHITE)
+                setStroke((1f * dp).toInt(), if (isNight(context)) Color.parseColor("#55FFFFFF") else Color.parseColor("#D3D6DA"))
+            }
+            elevation = 6f * dp
+        }
+        previewText = tv
+        return PopupWindow(tv, previewW, previewH, false).apply {
+            isTouchable = false
+            isFocusable = false
+            isClippingEnabled = false
+            inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+            animationStyle = 0
+            previewPopup = this
+        }
+    }
+
+    private fun updatePreviewText(text: String, color: Int) {
+        previewText?.apply {
+            this.text = text
+            setTextColor(color)
+        }
+    }
+
+    private fun showPreview(key: KeyData?) {
+        previewHandler.removeCallbacks(hintPreviewRunnable)
+        previewKey = key
+        if (key == null || key.isSpecial || key.label.isEmpty()) { hidePreview(); return }
+        val rect = keyRects[key] ?: return
+        if (windowToken == null) return
+        val label = if (shiftOn) key.label.uppercase() else key.label
+        try {
+            val popup = ensurePreview()
+            updatePreviewText(label, textPaint.color)
+            val loc = IntArray(2)
+            getLocationOnScreen(loc)
+            val x = (loc[0] + rect.centerX() - previewW / 2f).toInt()
+            val y = (loc[1] + rect.top - previewH - 4f * dp).toInt()
+            if (popup.isShowing) popup.update(x, y, previewW, previewH)
+            else popup.showAtLocation(this, Gravity.NO_GRAVITY, x, y)
+            if (hints[key] != null) previewHandler.postDelayed(hintPreviewRunnable, 380L)
+        } catch (e: Exception) {
+            // pop-up ko'rsatib bo'lmasa, klaviatura ishlashda davom etadi
+        }
+    }
+
+    private fun hidePreview() {
+        previewHandler.removeCallbacks(hintPreviewRunnable)
+        previewKey = null
+        try { previewPopup?.dismiss() } catch (e: Exception) { }
+    }
+
     // ===== Touch =====
     private val repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var repeatCount = 0
@@ -443,6 +522,7 @@ class KeyboardView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         stopRepeat()
+        hidePreview()
         super.onDetachedFromWindow()
     }
 
@@ -453,6 +533,7 @@ class KeyboardView @JvmOverloads constructor(
                 downTime = event.eventTime
                 stopRepeat()
                 pressedKey = key
+                showPreview(key)
                 if (key?.code == SpecialCodes.BACKSPACE) {
                     backspaceHeld = true
                     onKeyPressed?.invoke(key)
@@ -467,6 +548,7 @@ class KeyboardView @JvmOverloads constructor(
                     stopRepeat()
                     pressedKey = key
                     downTime = event.eventTime
+                    showPreview(key)
                     invalidate()
                 }
                 return true
@@ -477,6 +559,7 @@ class KeyboardView @JvmOverloads constructor(
                 val wasBackspace = backspaceHeld
                 stopRepeat()
                 pressedKey = null
+                hidePreview()
                 invalidate()
                 if (key != null && !wasBackspace) {
                     val hint = hints[key]
@@ -493,6 +576,7 @@ class KeyboardView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_CANCEL -> {
                 stopRepeat()
+                hidePreview()
                 pressedKey = null
                 invalidate()
                 return true
