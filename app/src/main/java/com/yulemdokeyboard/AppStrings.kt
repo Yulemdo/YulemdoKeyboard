@@ -70,10 +70,10 @@ object AppStrings {
         step2Title = "2-qadam: klaviaturani tanlang",
         step2Body = "Yozmoqçi bölgan joyni oçing, «Klaviaturani almaştiriş» tugmasini bosing va Yulemdo Klaviatura ni tanlang.",
         tipsTitle = "Foydali maslahatlar",
-        tipsBody = "• Shift ni tez ikki marta bossangiz — CAPS LOCK yoqiladi.\n" +
+        tipsBody = "• Yangi alifbo harflari — ö, ğ, ş, ç va tutuq ʼ — tugmalar qatorida tayyor turadi, alohida izlab özingizni qiynaştirmaysiz.\n" +
+            "• «sh», «ch», «oʻ/o'» va «gʻ/g'» kombinatsiyasini yozsangiz, klaviatura özi ularni ş, ç, ö, ğ ga aylantiradi.\n" +
+            "• Shift ni tez ikki marta bossangiz — CAPS LOCK yoqiladi.\n" +
             "• Globus tugmasi tilni almaştiradi: özbek, qoraqalpoq, ingliz, rus.\n" +
-            "• Öçiriş tugmasini bosib tursangiz, matn ketma-ket öçadi.\n" +
-            "• Harfni uzoq bossangiz, ustidagi raqam yoziladi.\n" +
             "• «Klaviatura muharriri» orqali tugmalarni özingiz joylaştirasiz.",
         next = "Keyingisi",
         back = "Orqaga",
@@ -93,10 +93,10 @@ object AppStrings {
         step2Title = "Шаг 2: выберите клавиатуру",
         step2Body = "Откройте любое поле ввода, нажмите «Сменить клавиатуру» и выберите Yulemdo Клавиатура.",
         tipsTitle = "Полезные советы",
-        tipsBody = "• Два быстрых нажатия на Shift — включается CAPS LOCK.\n" +
+        tipsBody = "• Раскладка полностью кириллическая — буквы й, ц, щ, ъ, ь, ё на привычных местах, без переключения на латиницу.\n" +
+            "• Удерживайте клавишу удаления — текст стирается непрерывно, без повторных нажатий.\n" +
+            "• Два быстрых нажатия на Shift — включается CAPS LOCK.\n" +
             "• Кнопка глобуса переключает язык: узбекский, каракалпакский, английский, русский.\n" +
-            "• Удерживайте кнопку удаления — текст стирается непрерывно.\n" +
-            "• Долгое нажатие на букву верхнего ряда вводит цифру.\n" +
             "• В «Редакторе клавиатуры» клавиши можно расставить по-своему.",
         next = "Далее",
         back = "Назад",
@@ -116,10 +116,10 @@ object AppStrings {
         step2Title = "Step 2: choose the keyboard",
         step2Body = "Open any text field, tap “Switch keyboard” and select Yulemdo Keyboard.",
         tipsTitle = "Handy tips",
-        tipsBody = "• Double-tap Shift to turn on CAPS LOCK.\n" +
+        tipsBody = "• A clean standard QWERTY layout — no extra accented letters to learn, just type as usual.\n" +
+            "• Long-press a letter in the top row to type its number instead of switching pages.\n" +
+            "• Double-tap Shift to turn on CAPS LOCK.\n" +
             "• The globe key switches language: Uzbek, Karakalpak, English, Russian.\n" +
-            "• Hold the delete key to erase continuously.\n" +
-            "• Long-press a letter in the top row to type its number.\n" +
             "• Use the “Keyboard editor” to arrange the keys your own way.",
         next = "Next",
         back = "Back",
@@ -139,10 +139,10 @@ object AppStrings {
         step2Title = "2-qádem: klaviaturanı saylań",
         step2Body = "Jazíw maydanın ashíń, «Klaviaturanı almastíríw» túymesin basíń hám Yulemdo Klaviatura-nı saylań.",
         tipsTitle = "Paydalí keńesler",
-        tipsBody = "• Shift túymesin tez eki ret bassańíz — CAPS LOCK qosíladí.\n" +
-            "• Globus túymesi tildi almastíradí: ózbek, qaraqalpaq, ingliz, rus.\n" +
-            "• Óshiriw túymesin basíp tursańíz, tekst ketpe-ket óshedi.\n" +
+        tipsBody = "• Qaraqalpaq álipbesiniń ózine tán háripleri — á, ǵ, í, ń, ó, ú — klaviaturada dáslep tayar turadí.\n" +
             "• Háripti uzaq bassańíz, ústindegi san jazíladí.\n" +
+            "• Shift túymesin tez eki ret bassańíz — CAPS LOCK qosíladí.\n" +
+            "• Globus túymesi tildi almastíradí: ózbek, qaraqalpaq, ingliz, rus.\n" +
             "• «Klaviatura redaktorí» arqalí túymelerdi ózińiz jaylastíra alasíz.",
         next = "Keyingi",
         back = "Artqa",
