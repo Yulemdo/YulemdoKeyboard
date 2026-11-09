@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.yulemdokeyboard.model.KeyData
+import com.yulemdokeyboard.model.SpecialCodes
 
 /**
  * Drag-drop qilib tugmalar joylashtiriladigan to'r (grid).
@@ -139,7 +140,7 @@ class EditorGridView @JvmOverloads constructor(
     fun loadKeys(keys: List<KeyData>) {
         removeAll()
         keys.forEach { k ->
-            val tv = createKeyView(k.label)
+            val tv = createKeyView(editorName(k))
             placeKey(tv, k.row to k.col, k.copy())
         }
     }
@@ -147,4 +148,17 @@ class EditorGridView @JvmOverloads constructor(
     fun exportKeys(): List<KeyData> {
         return placed.values.mapNotNull { it.tag as? KeyData }
     }
+}
+
+/** Editorda tugma ustida ko'rinadigan nom (asosiy klaviaturada ikonka chiziladi, bu yerda matn). */
+internal fun editorName(k: KeyData): String = when (k.code) {
+    SpecialCodes.SHIFT -> "⇧"
+    SpecialCodes.BACKSPACE -> "⌫"
+    SpecialCodes.ENTER -> "⏎"
+    SpecialCodes.SPACE -> "space"
+    SpecialCodes.SYMBOLS -> "123"
+    SpecialCodes.LETTERS -> "ABC"
+    SpecialCodes.LANG_SWITCH -> "🌐"
+    SpecialCodes.EMOJI, "\uD83D\uDE42" -> "☺"
+    else -> if (k.label.isNotEmpty()) k.label else k.code
 }
