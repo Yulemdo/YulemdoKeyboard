@@ -42,29 +42,6 @@ class YulemdoInputMethodService : InputMethodService() {
     private val en by lazy { englishLayout() }
     private val ru by lazy { russianLayout() }
 
-    // ===== Tizim klaviatura almashtirgichidagi til nomini sinxronlash =====
-    // method.xml dagi har bir subtype o'z tilida (Özbekça/Qaraqalpaqsha/English/Русский)
-    // yoziladi; shu funksiya ilova ichida tanlangan tilga mos subtype'ni tizimga bildiradi,
-    // shunda "Yulemdo Keyboard" tepasidagi til nomi doim to'g'ri ko'rinadi.
-    private fun syncSystemSubtype() {
-        val locale = when (lang) {
-            Languages.KAA -> "kaa"
-            Languages.EN -> "en"
-            Languages.RU -> "ru"
-            else -> "uz"
-        }
-        try {
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            val subtypes = imm.getEnabledInputMethodSubtypeList(null, true)
-            val match = subtypes.firstOrNull { it.locale == locale }
-            if (match != null) {
-                imm.setCurrentInputMethodSubtype(match)
-            }
-        } catch (_: Exception) {
-            // Ba'zi qurilmalarda ruxsat yo'q bo'lishi mumkin - jim o'tkazib yuboramiz
-        }
-    }
-
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this)
         keyboardView.onKeyPressed = { key -> handleKey(key) }
@@ -90,7 +67,6 @@ class YulemdoInputMethodService : InputMethodService() {
         lang = LayoutStorage.getLanguage(this)
         applySpaceLabel()
         showPage(Page.LETTERS)
-        syncSystemSubtype()
         return root
     }
 
@@ -100,7 +76,6 @@ class YulemdoInputMethodService : InputMethodService() {
         lang = LayoutStorage.getLanguage(this)
         applySpaceLabel()
         showPage(Page.LETTERS)
-        syncSystemSubtype()
     }
 
     // ===== Sahifalar / tillar =====
@@ -134,7 +109,6 @@ class YulemdoInputMethodService : InputMethodService() {
         LayoutStorage.setLanguage(this, lang)
         applySpaceLabel()
         if (page == Page.LETTERS) showPage(Page.LETTERS)
-        syncSystemSubtype()
     }
 
     private fun showEmoji() {
