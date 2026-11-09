@@ -132,6 +132,19 @@ class IntroActivity : AppCompatActivity() {
             topMargin = px(24)
         })
 
+        // Har bir qadamda nima qilish kerakligini ko'rsatuvchi tsiklik animatsiya
+        stepAnimMode(page)?.let { mode ->
+            val animCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = glass(20)
+            }
+            val anim = StepAnimView(this, mode)
+            animCard.addView(anim, LinearLayout.LayoutParams(-1, px(180)))
+            content.addView(animCard, LinearLayout.LayoutParams(-1, px(180)).apply {
+                topMargin = px(16)
+            })
+        }
+
         // 2 va 3-sahifalarda tegishli tizim sozlamasini ochuvchi tugma
         if (page == 2) {
             content.addView(secondaryButton(p.enableBtn) {
@@ -168,6 +181,15 @@ class IntroActivity : AppCompatActivity() {
         content.addView(buttons, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = px(18)
         })
+    }
+
+    // 1-sahifa (welcome): animatsiya yo'q. 2: svitchni yoqish. 3: ro'yxatdan tanlash.
+    // 4 (maslahatlar): uzoq bosish bilan raqam va o'chirishni bosib turish — ikkalasini almashtirib ko'rsatamiz.
+    private fun stepAnimMode(p: Int): StepAnimView.Mode? = when (p) {
+        2 -> StepAnimView.Mode.ENABLE
+        3 -> StepAnimView.Mode.SWITCH
+        4 -> StepAnimView.Mode.TIPS
+        else -> null
     }
 
     // ===== Yordamchi view'lar =====
