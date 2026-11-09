@@ -37,6 +37,10 @@ class KeyboardView @JvmOverloads constructor(
 
     var onKeyPressed: ((KeyData) -> Unit)? = null
     var shiftOn = false
+    var capsLock = false
+    var highlightCode: String? = null   // tanlangan tab (emoji paneli) uchun olovrang ajratish
+    var spaceLabel = ""                 // space tugmasi ustidagi til nomi
+    var spaceBadge = ""                 // til nomi yonidagi belgi (masalan V3)
 
     private val dp = resources.displayMetrics.density
     private val sp = resources.displayMetrics.scaledDensity
@@ -121,10 +125,11 @@ class KeyboardView @JvmOverloads constructor(
 
     // ===== Qat'iy balandlik =====
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val rows = layoutModel?.rows ?: 4
-        val desired = (vertPad * 2 + rowHeightPx * rows + rowGapPx * (rows - 1)).toInt()
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), desired)
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), desiredHeight(layoutModel?.rows ?: 4))
     }
+
+    fun desiredHeight(rows: Int): Int =
+        (vertPad * 2 + rowHeightPx * rows + rowGapPx * (rows - 1)).toInt()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -178,7 +183,7 @@ class KeyboardView @JvmOverloads constructor(
     }
 
     private fun drawGlassKey(canvas: Canvas, key: KeyData, rect: RectF) {
-        val isShiftActive = key.code == SpecialCodes.SHIFT && shiftOn
+        val isShiftActive = (key.code == SpecialCodes.SHIFT && shiftOn) || (highlightCode != null && key.code == highlightCode)
         val isPressed = key == pressedKey
 
         if (isShiftActive) {
@@ -213,8 +218,12 @@ class KeyboardView @JvmOverloads constructor(
 
         val cx = rect.centerX()
         val cy = rect.centerY()
+        if (key.code == SpecialCodes.SPACE) {
+            drawSpaceLabel(canvas, rect)
+            return
+        }
         when (iconType(key)) {
-            Icon.SHIFT -> drawShift(canvas, cx, cy, isShiftActive)
+            Icon.SHIFT -> drawShift(canvas, cx, cy, isShiftActive, capsLock)
             Icon.BACKSPACE -> drawBackspace(canvas, cx, cy)
             Icon.ENTER -> drawEnter(canvas, cx, cy)
             Icon.GLOBE -> drawGlobe(canvas, cx, cy)
@@ -223,13 +232,58 @@ class KeyboardView @JvmOverloads constructor(
                 val label = displayLabel(key)
                 if (label.isNotEmpty()) {
                     val ty = cy - (textPaint.descent() + textPaint.ascent()) / 2
-                    textPaint.textSize = if (key.isSpecial) 14f * sp else 21f * sp
+                    textPaint.textSize = when {
+                        key.code.startsWith("\u0001CAT") -> 20f * sp
+                        key.isSpecial -> 14f * sp
+                        else -> 21f * sp
+                    }
                     canvas.drawText(label, cx, ty, textPaint)
                 }
                 hints[key]?.let {
                     canvas.drawText(it, rect.right - 5f * dp, rect.top + 12f * dp, hintPaint)
                 }
             }
+        }
+    }
+
+    // ===== Space ustidagi til nomi =====
+    private val spacePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#B3FFFFFF")
+        textAlign = Paint.Align.LEFT
+        letterSpacing = 0.16f
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.LEFT
+        letterSpacing = 0.05f
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+
+    private fun drawSpaceLabel(c: Canvas, rect: RectF) {
+        if (spaceLabel.isEmpty()) return
+        val gap = 7f * dp
+        val maxW = rect.width() - 14f * dp
+        var size = 11f * sp
+        var labelW: Float
+        var badgeW: Float
+        var total: Float
+        do {
+            spacePaint.textSize = size
+            badgePaint.textSize = size * 0.9f
+            labelW = spacePaint.measureText(spaceLabel)
+            badgeW = if (spaceBadge.isNotEmpty()) badgePaint.measureText(spaceBadge) else 0f
+            total = labelW + if (badgeW > 0f) gap + badgeW else 0f
+            size -= 0.5f * sp
+        } while (total > maxW && size > 7f * sp)
+
+        var x = rect.centerX() - total / 2f
+        val ty = rect.centerY() - (spacePaint.descent() + spacePaint.ascent()) / 2f
+        c.drawText(spaceLabel, x, ty, spacePaint)
+        if (badgeW > 0f) {
+            x += labelW + gap
+            badgePaint.shader = LinearGradient(x, 0f, x + badgeW, 0f, fireStart, fireEnd, Shader.TileMode.CLAMP)
+            val by = rect.centerY() - (badgePaint.descent() + badgePaint.ascent()) / 2f
+            c.drawText(spaceBadge, x, by, badgePaint)
         }
     }
 
@@ -245,7 +299,7 @@ class KeyboardView @JvmOverloads constructor(
         else -> Icon.NONE
     }
 
-    private fun drawShift(c: Canvas, cx: Float, cy: Float, active: Boolean) {
+    private fun drawShift(c: Canvas, cx: Float, cy: Float, active: Boolean, caps: Boolean = false) {
         val s = 9f * dp
         val p = Path().apply {
             moveTo(cx, cy - s)
@@ -261,6 +315,13 @@ class KeyboardView @JvmOverloads constructor(
         else {
             iconFill.color = iconColor
             c.drawPath(p, iconStroke)
+        }
+        if (caps) {
+            // Caps lock: o'q tagida chiziq
+            c.drawRoundRect(
+                RectF(cx - s * 0.45f, cy + s + 2.5f * dp, cx + s * 0.45f, cy + s + 4.5f * dp),
+                dp, dp, iconFill
+            )
         }
         iconFill.color = iconColor
     }
@@ -395,7 +456,10 @@ class KeyboardView @JvmOverloads constructor(
                 invalidate()
                 if (key != null && !wasBackspace) {
                     val hint = hints[key]
-                    if (hint != null && held > 380) {
+                    if (key.code == SpecialCodes.LANG_SWITCH && held > 450) {
+                        // globus uzoq bosilsa: tizim klaviatura tanlagichi
+                        onKeyPressed?.invoke(KeyData("", SpecialCodes.LANG_PICKER, key.row, key.col, isSpecial = true))
+                    } else if (hint != null && held > 380) {
                         onKeyPressed?.invoke(KeyData(label = hint, code = hint, row = key.row, col = key.col))
                     } else {
                         onKeyPressed?.invoke(key)
