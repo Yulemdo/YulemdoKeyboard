@@ -1,0 +1,33 @@
+<resources>
+    <!-- Sayt bilan bir xil "olov" gradienti -->
+    <color name="fire_1">#FFC107</color>
+    <color name="fire_2">#FF9800</color>
+    <color name="fire_3">#FF6F00</color>
+    <color name="fire_4">#FF3D00</color>
+    <color name="fire_5">#D84315</color>
+
+    <color name="bg_page">#000000</color>
+    <color name="bg_surface">#1A1A1A</color>
+    <color name="bg_elevated">#242424</color>
+
+    <color name="text_primary">#E8EAED</color>
+    <color name="text_secondary">#BDC1C6</color>
+    <color name="text_muted">#9AA0A6</color>
+
+    <color name="accent">#FF6F60</color>
+    <color name="accent_soft">#26FF6F60</color>
+
+    <!-- Glass tugmalar uçun -->
+    <color name="glass_fill">#26FFFFFF</color>
+    <color name="glass_fill_pressed">#40FFFFFF</color>
+    <color name="glass_border">#33FFFFFF</color>
+    <color name="glass_special_fill">#1AFFFFFF</color>
+
+    <color name="purple_500">#6200EE</color>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="bg_dark">#000000</color>
+    <color name="cell_bg">#1A1A1A</color>
+    <color name="cell_border">#33FFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>

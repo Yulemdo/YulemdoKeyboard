@@ -1,0 +1,7 @@
+<resources>
+    <!-- Bosh ekranda ikonka ostida ko'rinadigan qisqa nom -->
+    <string name="app_name">Keyboard</string>
+    <!-- Ilova ichida (sarlavha, sozlamalar ro'yxati va h.k.) ishlatiladigan to'liq nom -->
+    <string name="app_full_name">Yulemdo Keyboard</string>
+    <string name="editor_title">Klaviatura muharriri</string>
+</resources>
