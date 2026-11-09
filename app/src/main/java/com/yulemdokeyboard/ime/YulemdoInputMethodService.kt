@@ -32,9 +32,13 @@ class YulemdoInputMethodService : InputMethodService() {
         val ic = currentInputConnection ?: return
         when (key.code) {
             SpecialCodes.BACKSPACE -> ic.deleteSurroundingText(1, 0)
-            SpecialCodes.ENTER -> ic.sendKeyEvent(
-                android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER)
-            )
+            SpecialCodes.ENTER -> {
+                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
+                ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+            }
+            SpecialCodes.EMOJI, "🙂" -> {
+                // Emoji paneli keyingi bosqichda qo'shiladi.
+            }
             SpecialCodes.SHIFT -> {
                 shiftOn = !shiftOn
                 keyboardView.shiftOn = shiftOn
