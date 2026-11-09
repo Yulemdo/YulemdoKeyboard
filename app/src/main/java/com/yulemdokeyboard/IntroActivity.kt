@@ -31,6 +31,8 @@ class IntroActivity : AppCompatActivity() {
     private var page = 0
     private var lang: String? = null
     private lateinit var content: LinearLayout
+    private var nextBtn: TextView? = null
+    private var hintView: TextView? = null
 
     private val fireStart = Color.parseColor("#FFFF3D00")
     private val fireEnd = Color.parseColor("#FFFFC107")
@@ -155,6 +157,14 @@ class IntroActivity : AppCompatActivity() {
                 (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
             })
         }
+        hintView = null
+        if (page == 2 || page == 3) {
+            hintView = text(lockedHint(page), 13f, "#FFC107").apply {
+                gravity = Gravity.CENTER
+                setPadding(0, px(12), 0, 0)
+            }
+            content.addView(hintView)
+        }
 
         content.addView(View(this), LinearLayout.LayoutParams(-1, 0, 1f))   // bo'shliq: tugmalarni pastga suradi
         content.addView(dots())
@@ -165,22 +175,79 @@ class IntroActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(0, px(54), 1f).apply { marginEnd = px(10) }
         )
         val last = page == 4
-        buttons.addView(
-            pill(if (last) p.start else p.next, filled = true) {
-                if (last) {
-                    AppStrings.setIntroDone(this)
-                    startActivity(Intent(this, MainActivity::class.java))
-                    finish()
-                } else {
-                    page++
-                    render()
-                }
-            },
-            LinearLayout.LayoutParams(0, px(54), 1.4f)
-        )
+        val nextPill = pill(if (last) p.start else p.next, filled = true) {
+            if (!isStepDone(page)) return@pill   // amal bajarilmagan bo'lsa o'tib bo'lmaydi
+            if (last) {
+                AppStrings.setIntroDone(this)
+                startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            } else {
+                page++
+                render()
+            }
+        }
+        nextBtn = nextPill
+        buttons.addView(nextPill, LinearLayout.LayoutParams(0, px(54), 1.4f))
         content.addView(buttons, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = px(18)
         })
+        updateNextState()
+    }
+
+    // ===== Qadam bajarilganini tekshirish =====
+    private fun isKeyboardEnabled(): Boolean {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        return imm.enabledInputMethodList.any { it.packageName == packageName }
+    }
+
+    private fun isKeyboardSelected(): Boolean {
+        val cur = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD) ?: return false
+        return cur.startsWith("$packageName/")
+    }
+
+    /** 2-sahifa: klaviatura yoqilgan bo'lishi, 3-sahifa: tanlangan bo'lishi shart. Qolganlarida shart yo'q. */
+    private fun isStepDone(p: Int): Boolean = when (p) {
+        2 -> isKeyboardEnabled()
+        3 -> isKeyboardEnabled() && isKeyboardSelected()
+        else -> true
+    }
+
+    private fun lockedHint(p: Int): String = when (lang) {
+        AppStrings.RU -> if (p == 2) "Сначала включите клавиатуру, чтобы продолжить" else "Сначала выберите клавиатуру, чтобы продолжить"
+        AppStrings.EN -> if (p == 2) "Enable the keyboard first to continue" else "Select the keyboard first to continue"
+        AppStrings.KAA -> if (p == 2) "Dawam etiw ushín aldin klaviaturanı qosíń" else "Dawam etiw ushín aldin klaviaturanı saylań"
+        else -> if (p == 2) "Davom etiş uçun avval klaviaturani yoqing" else "Davom etiş uçun avval klaviaturani tanlang"
+    }
+
+    /** Keyingi tugmani faollashtiradi yoki kulrang qilib o'chirib qo'yadi. */
+    private fun updateNextState() {
+        if (page == 0) return
+        val btn = nextBtn ?: return
+        val ok = isStepDone(page)
+        btn.isEnabled = ok
+        if (ok) {
+            btn.setTextColor(Color.WHITE)
+            btn.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(fireStart, fireEnd))
+                .apply { cornerRadius = px(27).toFloat() }
+        } else {
+            btn.setTextColor(Color.parseColor("#80FFFFFF"))
+            btn.background = GradientDrawable().apply {
+                cornerRadius = px(27).toFloat()
+                setColor(Color.parseColor("#55808080"))
+            }
+        }
+        hintView?.visibility = if (ok) View.GONE else View.VISIBLE
+    }
+
+    // Sozlamalardan yoki tanlagich oynasidan qaytganda holatni qayta tekshiramiz
+    override fun onResume() {
+        super.onResume()
+        updateNextState()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) updateNextState()
     }
 
     // 1-sahifa (welcome): animatsiya yo'q. 2: svitchni yoqish. 3: ro'yxatdan tanlash.
