@@ -431,12 +431,18 @@ class KeyboardView @JvmOverloads constructor(
     private val previewH = (64f * dp).toInt()
     private val previewHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var previewKey: KeyData? = null
+    private var longPressConsumed = false   // uzoq bosishda raqam yozilib bo'lsa, qo'yib yuborganda qayta yozilmaydi
 
     // Uzoq bosilganda (380ms) pop-up raqamga almashadi - nima yozilishini oldindan ko'rsatadi
     private val hintPreviewRunnable = Runnable {
         val k = previewKey ?: return@Runnable
         val h = hints[k] ?: return@Runnable
+        if (pressedKey != k) return@Runnable
+        // Pop-up raqamga almashadi va raqam darhol yoziladi
         updatePreviewText(h, accentColor)
+        longPressConsumed = true
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        onKeyPressed?.invoke(KeyData(label = h, code = h, row = k.row, col = k.col))
     }
 
     private fun ensurePreview(): PopupWindow {
@@ -483,10 +489,10 @@ class KeyboardView @JvmOverloads constructor(
             val loc = IntArray(2)
             getLocationOnScreen(loc)
             val x = (loc[0] + rect.centerX() - previewW / 2f).toInt()
-            val y = (loc[1] + rect.top - previewH - 4f * dp).toInt()
+            val y = (loc[1] + rect.top - previewH - 4f * dp).toInt().coerceAtLeast(0)
             if (popup.isShowing) popup.update(x, y, previewW, previewH)
             else popup.showAtLocation(this, Gravity.NO_GRAVITY, x, y)
-            if (hints[key] != null) previewHandler.postDelayed(hintPreviewRunnable, 380L)
+            if (hints[key] != null) previewHandler.postDelayed(hintPreviewRunnable, 350L)
         } catch (e: Exception) {
             // pop-up ko'rsatib bo'lmasa, klaviatura ishlashda davom etadi
         }
@@ -532,6 +538,7 @@ class KeyboardView @JvmOverloads constructor(
                 val key = findKeyAt(event.x, event.y)
                 downTime = event.eventTime
                 stopRepeat()
+                longPressConsumed = false
                 pressedKey = key
                 showPreview(key)
                 if (key?.code == SpecialCodes.BACKSPACE) {
@@ -546,6 +553,7 @@ class KeyboardView @JvmOverloads constructor(
                 val key = findKeyAt(event.x, event.y)
                 if (key != pressedKey) {
                     stopRepeat()
+                    longPressConsumed = false
                     pressedKey = key
                     downTime = event.eventTime
                     showPreview(key)
@@ -557,17 +565,16 @@ class KeyboardView @JvmOverloads constructor(
                 val key = findKeyAt(event.x, event.y)
                 val held = event.eventTime - downTime
                 val wasBackspace = backspaceHeld
+                val consumed = longPressConsumed
+                longPressConsumed = false
                 stopRepeat()
                 pressedKey = null
                 hidePreview()
                 invalidate()
-                if (key != null && !wasBackspace) {
-                    val hint = hints[key]
+                if (key != null && !wasBackspace && !consumed) {
                     if (key.code == SpecialCodes.LANG_SWITCH && held > 450) {
                         // globus uzoq bosilsa: tizim klaviatura tanlagichi
                         onKeyPressed?.invoke(KeyData("", SpecialCodes.LANG_PICKER, key.row, key.col, isSpecial = true))
-                    } else if (hint != null && held > 380) {
-                        onKeyPressed?.invoke(KeyData(label = hint, code = hint, row = key.row, col = key.col))
                     } else {
                         onKeyPressed?.invoke(key)
                     }
@@ -575,6 +582,7 @@ class KeyboardView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                longPressConsumed = false
                 stopRepeat()
                 hidePreview()
                 pressedKey = null
