@@ -34,6 +34,7 @@ object SpecialCodes {
     const val SYMBOLS = "?123"
     const val LETTERS = "ABC"
     const val LANG_SWITCH = "\u0001LANG"
+    const val EMOJI = "\u0001EMOJI"
 }
 
 /**
@@ -54,19 +55,19 @@ fun defaultUzbekLayout(): KeyboardLayout {
     row2.forEachIndexed { i, c -> keys.add(KeyData(c, c, row = 1, col = i)) }
 
     // 3-qator: shift + z x c v b n m + ç ş + backspace
-    keys.add(KeyData(SpecialCodes.SHIFT, SpecialCodes.SHIFT, row = 2, col = 0, width = 1.3f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.SHIFT, row = 2, col = 0, width = 1.3f, isSpecial = true))
     val row3 = listOf("z", "x", "c", "v", "b", "n", "m", "ç", "ş")
     row3.forEachIndexed { i, c -> keys.add(KeyData(c, c, row = 2, col = i + 1)) }
-    keys.add(KeyData("⌫", SpecialCodes.BACKSPACE, row = 2, col = 10, width = 1.3f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 2, col = 10, width = 1.3f, isSpecial = true))
 
     // 4-qator: 123, emoji, globus, bo'shliq (matnsiz), vergul, nuqta, enter
     keys.add(KeyData(SpecialCodes.SYMBOLS, SpecialCodes.SYMBOLS, row = 3, col = 0, width = 1.3f, isSpecial = true))
-    keys.add(KeyData("🙂", "🙂", row = 3, col = 1, width = 1f, isSpecial = true))
-    keys.add(KeyData("🌐", SpecialCodes.LANG_SWITCH, row = 3, col = 2, width = 1f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.EMOJI, row = 3, col = 1, width = 1f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 2, width = 1f, isSpecial = true))
     keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = 3, width = 3.4f, isSpecial = true))
     keys.add(KeyData(",", ",", row = 3, col = 7, width = 1f))
     keys.add(KeyData(".", ".", row = 3, col = 8, width = 1f))
-    keys.add(KeyData("⏎", SpecialCodes.ENTER, row = 3, col = 9, width = 1.6f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 9, width = 1.6f, isSpecial = true))
 
     return KeyboardLayout(name = "O'zbek (standart)", rows = 4, cols = 11, keys = keys)
 }
