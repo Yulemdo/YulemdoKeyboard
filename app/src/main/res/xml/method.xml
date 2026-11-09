@@ -1,23 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<input-method xmlns:android="http://schemas.android.com/apk/res/android">
-    <subtype
-        android:label="@string/label_subtype_uz"
-        android:imeSubtypeLocale="uz"
-        android:imeSubtypeMode="keyboard"
-        android:subtypeId="1001" />
-    <subtype
-        android:label="@string/label_subtype_kaa"
-        android:imeSubtypeLocale="kaa"
-        android:imeSubtypeMode="keyboard"
-        android:subtypeId="1002" />
-    <subtype
-        android:label="@string/label_subtype_en"
-        android:imeSubtypeLocale="en"
-        android:imeSubtypeMode="keyboard"
-        android:subtypeId="1003" />
-    <subtype
-        android:label="@string/label_subtype_ru"
-        android:imeSubtypeLocale="ru"
-        android:imeSubtypeMode="keyboard"
-        android:subtypeId="1004" />
-</input-method>
+<!-- Subtype yo'q: tizim tanlagichida faqat bitta "Yulemdo Keyboard" ko'rinadi.
+     Tillar klaviaturaning o'zidagi globus tugmasi orqali almashadi. -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android" />
