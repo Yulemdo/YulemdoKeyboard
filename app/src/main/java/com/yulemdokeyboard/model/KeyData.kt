@@ -29,6 +29,7 @@ object SpecialCodes {
     const val SYMBOLS = "?123"          // harflar sahifasidagi "123" tugmasi
     const val LETTERS = "ABC"
     const val LANG_SWITCH = "\u0001LANG"
+    const val LANG_PICKER = "\u0001LANGPICK"
     const val EMOJI = "\u0001EMOJI"
     const val SYMBOLS1 = "\u0001SYM1"   // belgilar 1-sahifa (raqamlar)
     const val SYMBOLS2 = "\u0001SYM2"   // belgilar 2-sahifa (=\<)
