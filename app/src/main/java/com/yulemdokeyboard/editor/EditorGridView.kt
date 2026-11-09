@@ -124,7 +124,7 @@ class EditorGridView @JvmOverloads constructor(
         val tv = TextView(context)
         tv.text = label
         tv.setTextColor(Color.WHITE)
-        tv.background = androidx.core.content.ContextCompat.getDrawable(context, com.yulemdokeyboard.R.drawable.bg_glass_button)
+        tv.background = com.yulemdokeyboard.Ui.glass(context, 12)
         tv.gravity = Gravity.CENTER
         tv.textSize = 13f
         val pad = (4 * resources.displayMetrics.density).toInt()
