@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_500">#FFFF9800</color>
-    <color name="bg_dark">#FF000000</color>
+    <!-- Eski nomlar (tema shularga havola qiladi) -> endi shisha (shaffof) ranglar -->
+    <color name="purple_500">#3DFFFFFF</color>
+    <color name="bg_dark">#E60D0D0D</color>
+
+    <!-- Shisha palitrasi -->
+    <color name="glass_fill">#26FFFFFF</color>
+    <color name="glass_pressed">#40FFFFFF</color>
+    <color name="glass_border">#33FFFFFF</color>
 </resources>
