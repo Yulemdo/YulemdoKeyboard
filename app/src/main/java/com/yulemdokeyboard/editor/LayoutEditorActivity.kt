@@ -2,6 +2,8 @@ package com.yulemdokeyboard.editor
 
 import android.content.ClipData
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -23,6 +25,8 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     private lateinit var gridView: EditorGridView
     private lateinit var paletteContainer: ViewGroup
+    private lateinit var btnUndo: Button
+    private lateinit var btnRedo: Button
 
     // Palitrada: lotin harflari + o'zbekka xos (turkcha shakldagi) harflar
     private val paletteChars = listOf(
@@ -41,19 +45,23 @@ class LayoutEditorActivity : AppCompatActivity() {
         replaceGridFrameWithEditorGrid()
         paletteContainer = resolvePaletteContainer()
         buildPalette()
+        addUndoRedoButtons()
+
+        gridView.onHistoryChanged = { updateUndoRedoState() }
 
         val saved = LayoutStorage.loadCustomLayout(this)
         val start = saved ?: defaultUzbekLayout()
         gridView.rows = start.rows
         gridView.cols = start.cols
-        gridView.post { gridView.loadKeys(start.keys) }
+        gridView.post { gridView.loadKeys(start.keys) ; updateUndoRedoState() }
 
         findViewById<View>(R.id.btnReset).setOnClickListener {
             val def = defaultUzbekLayout()
             gridView.rows = def.rows
             gridView.cols = def.cols
-            gridView.loadKeys(def.keys)
+            gridView.loadKeys(def.keys) // yangi boshlanish - tarix tozalanadi
             gridView.invalidate()
+            updateUndoRedoState()
             Toast.makeText(this, "Standart joylashuv tiklandi", Toast.LENGTH_SHORT).show()
         }
 
@@ -126,5 +134,58 @@ class LayoutEditorActivity : AppCompatActivity() {
             }
             paletteContainer.addView(chip)
         }
+    }
+
+    /**
+     * Yangi: "Standartga qaytarish" / "Saqlash" tugmalari joylashgan qatorga
+     * Undo va Redo tugmalarini qo'shadi (XML o'zgartirilmaydi - dasturiy ravishda qo'shiladi).
+     */
+    private fun addUndoRedoButtons() {
+        val resetBtn = findViewById<View>(R.id.btnReset)
+        val bottomRow = resetBtn.parent as? ViewGroup ?: return
+        val dp = resources.displayMetrics.density
+
+        fun glassBtn(label: String): Button = Button(this).apply {
+            text = label
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.parseColor("#3DFFFFFF"), Color.parseColor("#14FFFFFF"))
+            ).apply {
+                cornerRadius = 16 * dp
+                setStroke((1 * dp).toInt(), Color.parseColor("#33FFFFFF"))
+            }
+        }
+
+        btnUndo = glassBtn("↶ Ortga")
+        btnRedo = glassBtn("↷ Oldinga")
+
+        val lp = LinearLayout.LayoutParams(0, (48 * dp).toInt(), 1f).apply {
+            marginStart = (6 * dp).toInt()
+            marginEnd = (6 * dp).toInt()
+        }
+
+        val resetIndex = bottomRow.indexOfChild(resetBtn)
+        bottomRow.addView(btnUndo, resetIndex, lp)
+        bottomRow.addView(btnRedo, resetIndex + 1, lp)
+
+        btnUndo.setOnClickListener {
+            gridView.undo()
+            updateUndoRedoState()
+        }
+        btnRedo.setOnClickListener {
+            gridView.redo()
+            updateUndoRedoState()
+        }
+    }
+
+    private fun updateUndoRedoState() {
+        if (!::btnUndo.isInitialized) return
+        btnUndo.alpha = if (gridView.canUndo()) 1f else 0.4f
+        btnUndo.isEnabled = gridView.canUndo()
+        btnRedo.alpha = if (gridView.canRedo()) 1f else 0.4f
+        btnRedo.isEnabled = gridView.canRedo()
     }
 }

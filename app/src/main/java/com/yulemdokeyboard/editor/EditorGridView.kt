@@ -17,7 +17,8 @@ import com.yulemdokeyboard.model.SpecialCodes
  * Drag-drop qilib tugmalar joylashtiriladigan to'r (grid).
  * - Palette'dagi chip shu yerga tortib tashlansa -> yangi tugma qo'shiladi (eng yaqin katakka "snap" qilinadi).
  * - To'rda turgan tugma qayta tortilsa -> boshqa katakka ko'chadi.
- * - Tugmani uzoq bosib ushlab, chetga tortib chiqarib yuborilsa -> o'chadi (ACTION_DROP tashqarida bo'lsa).
+ * - To'rdagi tugmaga oddiy bosilsa (tap) -> o'sha tugma o'chiriladi (undo bilan qaytarish mumkin).
+ * - Har bir o'zgarish (qo'shish/ko'chirish/o'chirish) tarixga yoziladi -> undo()/redo().
  */
 class EditorGridView @JvmOverloads constructor(
     context: Context,
@@ -27,6 +28,9 @@ class EditorGridView @JvmOverloads constructor(
     var rows = 4
     var cols = 10
 
+    /** Har bir o'zgarishdan keyin chaqiriladi (Undo/Redo tugmalarini yangilash uchun). */
+    var onHistoryChanged: (() -> Unit)? = null
+
     private val gridPaint = Paint().apply {
         color = Color.parseColor("#1FFFFFFF")
         style = Paint.Style.STROKE
@@ -35,6 +39,11 @@ class EditorGridView @JvmOverloads constructor(
 
     // row -> col -> placed key view (key dekorativ qiymatlari bilan)
     private val placed = mutableMapOf<Pair<Int, Int>, TextView>()
+
+    // ===== Undo / Redo =====
+    private val undoStack = ArrayDeque<List<KeyData>>()
+    private val redoStack = ArrayDeque<List<KeyData>>()
+    private var suppressHistory = false
 
     init {
         setWillNotDraw(false)
@@ -73,6 +82,7 @@ class EditorGridView @JvmOverloads constructor(
                     return false // band katak - tashlashga ruxsat yo'q
                 }
 
+                pushUndoSnapshot()
                 if (draggedView != null && placed.values.contains(draggedView)) {
                     // Mavjud tugma ko'chmoqda - eski o'rnini bo'shatamiz
                     val oldKey = placed.entries.find { it.value == draggedView }?.key
@@ -123,7 +133,17 @@ class EditorGridView @JvmOverloads constructor(
             startKeyDrag(v as TextView)
             true
         }
+        // Yangi: oddiy bosish (tap) - tugmani o'chiradi. Undo bilan qaytarish mumkin.
+        tv.setOnClickListener { v -> removeKeyView(v as TextView) }
         return tv
+    }
+
+    private fun removeKeyView(view: TextView) {
+        val cell = placed.entries.find { it.value == view }?.key ?: return
+        pushUndoSnapshot()
+        placed.remove(cell)
+        removeView(view)
+        notifyHistoryChanged()
     }
 
     private fun startKeyDrag(view: TextView) {
@@ -137,16 +157,60 @@ class EditorGridView @JvmOverloads constructor(
         placed.clear()
     }
 
-    fun loadKeys(keys: List<KeyData>) {
+    /** resetHistory = true bo'lsa (masalan boshlang'ich yuklashda yoki "Standartga qaytarish"da) undo/redo tozalanadi. */
+    fun loadKeys(keys: List<KeyData>, resetHistory: Boolean = true) {
         removeAll()
         keys.forEach { k ->
             val tv = createKeyView(editorName(k))
             placeKey(tv, k.row to k.col, k.copy())
         }
+        if (resetHistory) {
+            undoStack.clear()
+            redoStack.clear()
+            notifyHistoryChanged()
+        }
     }
 
     fun exportKeys(): List<KeyData> {
         return placed.values.mapNotNull { it.tag as? KeyData }
+    }
+
+    // ===== Undo / Redo mantig'i =====
+    private fun pushUndoSnapshot() {
+        if (suppressHistory) return
+        undoStack.addLast(exportKeys().map { it.copy() })
+        if (undoStack.size > 30) undoStack.removeFirst()
+        redoStack.clear()
+        notifyHistoryChanged()
+    }
+
+    fun canUndo() = undoStack.isNotEmpty()
+    fun canRedo() = redoStack.isNotEmpty()
+
+    fun undo() {
+        if (undoStack.isEmpty()) return
+        val current = exportKeys().map { it.copy() }
+        val prev = undoStack.removeLast()
+        redoStack.addLast(current)
+        suppressHistory = true
+        loadKeys(prev, resetHistory = false)
+        suppressHistory = false
+        notifyHistoryChanged()
+    }
+
+    fun redo() {
+        if (redoStack.isEmpty()) return
+        val current = exportKeys().map { it.copy() }
+        val next = redoStack.removeLast()
+        undoStack.addLast(current)
+        suppressHistory = true
+        loadKeys(next, resetHistory = false)
+        suppressHistory = false
+        notifyHistoryChanged()
+    }
+
+    private fun notifyHistoryChanged() {
+        onHistoryChanged?.invoke()
     }
 }
 
