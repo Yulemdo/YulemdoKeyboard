@@ -17,7 +17,8 @@ import com.yulemdokeyboard.model.SpecialCodes
 /**
  * Qurilmaning o'z emojilarini ko'rsatadigan panel.
  * Faqat shu qurilma shrifti chiza oladigan emojilar ko'rsatiladi (Paint.hasGlyph).
- * Pastda: ABC, kategoriya tablari va backspace (bosib turilsa ketma-ket o'chiradi).
+ * Birinchi tab - "🕐 Oxirgi ishlatilganlar" (yangi). Pastda: ABC, kategoriya tablari va
+ * backspace (bosib turilsa ketma-ket o'chiradi).
  */
 class EmojiPanel(
     context: Context,
@@ -30,6 +31,9 @@ class EmojiPanel(
     private val scroll = ScrollView(context)
     private val bar = KeyboardView(context)
     private val grids = HashMap<Int, GridLayout>()
+    private var currentIndex = 0
+
+    private val prefs = context.getSharedPreferences("yulemdo_emoji", Context.MODE_PRIVATE)
 
     private val categories: List<Pair<String, List<String>>> by lazy {
         EmojiData.categories.map { (tab, raw) -> tab to supported(raw.split(" ").filter { it.isNotBlank() }) }
@@ -58,21 +62,34 @@ class EmojiPanel(
             }
         }
         addView(bar, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        select(0)
+        // 0-index - "oxirgi ishlatilganlar" bo'lsa shundan, aks holda birinchi oddiy kategoriya
+        select(if (getRecent().isNotEmpty()) RECENT_INDEX else 0)
     }
 
+    /**
+     * Tab kodlari: RECENT_INDEX (-1) - "oxirgi ishlatilganlar",
+     * 0..N-1 - EmojiData.categories bo'yicha oddiy kategoriyalar.
+     * CAT kodida manfiy son ham ishlatiladi: "-1" recent uchun.
+     */
     private fun buildBar(): KeyboardLayout {
         val keys = mutableListOf<KeyData>()
         keys.add(KeyData("ABC", SpecialCodes.LETTERS, row = 0, col = 0, width = 1.4f, isSpecial = true))
+        keys.add(KeyData("🕐", "$CAT$RECENT_INDEX", row = 0, col = 1, isSpecial = true))
         EmojiData.categories.forEachIndexed { i, (tab, _) ->
-            keys.add(KeyData(tab, "$CAT$i", row = 0, col = i + 1, isSpecial = true))
+            keys.add(KeyData(tab, "$CAT$i", row = 0, col = i + 2, isSpecial = true))
         }
-        keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 0, col = EmojiData.categories.size + 1, width = 1.4f, isSpecial = true))
+        keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 0, col = EmojiData.categories.size + 2, width = 1.4f, isSpecial = true))
         return KeyboardLayout("emoji", rows = 1, cols = keys.size, keys = keys)
     }
 
     private fun select(index: Int) {
-        val grid = grids.getOrPut(index) { buildGrid(index) }
+        currentIndex = index
+        val grid = if (index == RECENT_INDEX) {
+            // Har safar qayta quriladi, chunki ro'yxat o'zgarib turadi
+            buildRecentGrid()
+        } else {
+            grids.getOrPut(index) { buildGrid(index) }
+        }
         scroll.removeAllViews()
         scroll.addView(grid)
         scroll.scrollTo(0, 0)
@@ -80,24 +97,52 @@ class EmojiPanel(
         bar.invalidate()
     }
 
-    private fun buildGrid(index: Int): GridLayout {
+    private fun buildGrid(index: Int): GridLayout = buildGridFromList(categories[index].second)
+
+    private fun buildRecentGrid(): GridLayout = buildGridFromList(getRecent())
+
+    private fun buildGridFromList(list: List<String>): GridLayout {
         val columns = 8
         val cellW = resources.displayMetrics.widthPixels / columns
         val cellH = (46 * dp).toInt()
         val grid = GridLayout(context)
         grid.columnCount = columns
-        categories[index].second.forEach { e ->
+        list.forEach { e ->
             val tv = TextView(context)
             tv.text = e
             tv.textSize = 26f
             tv.gravity = Gravity.CENTER
-            tv.setOnClickListener { onEmoji(e) }
+            tv.setOnClickListener { selectEmoji(e) }
             val lp = GridLayout.LayoutParams()
             lp.width = cellW
             lp.height = cellH
             grid.addView(tv, lp)
         }
         return grid
+    }
+
+    private fun selectEmoji(e: String) {
+        addRecent(e)
+        onEmoji(e)
+    }
+
+    // ===== Oxirgi ishlatilgan emojilar (SharedPreferences, vergul bilan ajratilgan) =====
+    private fun getRecent(): List<String> {
+        val raw = prefs.getString(KEY_RECENT, "") ?: ""
+        return raw.split(",").filter { it.isNotBlank() }
+    }
+
+    private fun addRecent(e: String) {
+        val list = getRecent().toMutableList()
+        list.remove(e)
+        list.add(0, e)
+        while (list.size > MAX_RECENT) list.removeAt(list.size - 1)
+        prefs.edit().putString(KEY_RECENT, list.joinToString(",")).apply()
+        // Agar hozir "oxirgilar" tabida bo'lsak, ro'yxatni yangilab qo'yamiz
+        if (currentIndex == RECENT_INDEX) {
+            scroll.removeAllViews()
+            scroll.addView(buildRecentGrid())
+        }
     }
 
     private fun supported(list: List<String>): List<String> {
@@ -108,6 +153,9 @@ class EmojiPanel(
 
     private companion object {
         const val CAT = "\u0001CAT"
+        const val RECENT_INDEX = -1
+        const val KEY_RECENT = "recent_emojis"
+        const val MAX_RECENT = 32
     }
 }
 
