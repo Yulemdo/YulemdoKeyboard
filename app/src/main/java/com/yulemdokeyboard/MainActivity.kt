@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
     private fun relangLabel(): String = when (AppStrings.getLang(this)) {
         AppStrings.RU -> "Сменить язык"
         AppStrings.EN -> "Change language"
-        AppStrings.KAA -> "Tildi almastiriw"
+        AppStrings.KAA -> "Tildi almastíríw"
         else -> "Tilni qayta tanlash"
     }
 }
