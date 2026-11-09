@@ -64,13 +64,13 @@ class LayoutEditorActivity : AppCompatActivity() {
             gridView.loadKeys(def.keys) // yangi boshlanish - tarix tozalanadi
             gridView.invalidate()
             updateUndoRedoState()
-            Toast.makeText(this, "Standart joylashuv tiklandi", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Standart joylaşuv tiklandi", Toast.LENGTH_SHORT).show()
         }
 
         findViewById<View>(R.id.btnSave).setOnClickListener {
             val keys = gridView.exportKeys()
             if (keys.isEmpty()) {
-                Toast.makeText(this, "Avval kamida bitta tugma joylashtiring", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Avval kamida bitta tugma joylaştiring", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
             val layout = KeyboardLayout(
@@ -81,7 +81,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             )
             LayoutStorage.saveCustomLayout(this, layout)
             LayoutStorage.setActiveLayout(this, "custom")
-            Toast.makeText(this, "Saqlandi! Endi klaviaturada shu joylashuv ishlatiladi.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Saqlandi! Endi klaviaturada şu joylaşuv işlatiladi.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -133,7 +133,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         }
 
         addPaletteSection(vertical, "Harflar", letterSection)
-        addPaletteSection(vertical, "O'zbekka xos", uzLetterSection)
+        addPaletteSection(vertical, "Özbekka xos", uzLetterSection)
         addPaletteSection(vertical, "Raqamlar", digitSection)
         addPaletteSection(vertical, "Belgilar", punctSection)
         paletteContainer = vertical
