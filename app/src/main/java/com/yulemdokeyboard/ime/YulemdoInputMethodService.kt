@@ -127,7 +127,7 @@ class YulemdoInputMethodService : InputMethodService() {
         root.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         emojiPanel.visibility = View.GONE
 
-        lang = LayoutStorage.getLanguage(this)
+        loadLang()
         applySpaceLabel()
         showPage(Page.LETTERS)
         loadFont()
@@ -294,7 +294,7 @@ class YulemdoInputMethodService : InputMethodService() {
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         hideEmoji()
-        lang = LayoutStorage.getLanguage(this)
+        loadLang()
         applySpaceLabel()
         showPage(Page.LETTERS)
         loadFont()
@@ -326,12 +326,106 @@ class YulemdoInputMethodService : InputMethodService() {
         keyboardView.invalidate()
     }
 
+    /** Saqlangan tilni o'qiydi; agar u endi o'chirilgan bo'lsa, birinchi yoniq tilga o'tadi. */
+    private fun loadLang() {
+        lang = LayoutStorage.getLanguage(this)
+        val enabled = LayoutStorage.getEnabledLanguages(this)
+        if (lang !in enabled) {
+            lang = enabled.first()
+            LayoutStorage.setLanguage(this, lang)
+        }
+    }
+
     private fun cycleLanguage() {
-        lang = Languages.next(lang)
+        switchTo(Languages.next(lang, LayoutStorage.getEnabledLanguages(this)))
+    }
+
+    private fun switchTo(l: String) {
+        lang = l
         LayoutStorage.setLanguage(this, lang)
         loadFont()
         applySpaceLabel()
         if (page == Page.LETTERS) showPage(Page.LETTERS)
+    }
+
+    private var langMenu: PopupWindow? = null
+
+    private fun otherKeyboardLabel() = when (lang) {
+        Languages.RU -> "Другая клавиатура"
+        Languages.EN -> "Other keyboard"
+        Languages.KAA -> "Basqa klaviatura"
+        else -> "Boşqa klaviatura"
+    }
+
+    /** Globus tugmasi bosib turilganda: yoqilgan tillar ro'yxati, bittasini bossangiz darhol shu tilga o'tadi. */
+    private fun showLangMenu() {
+        try { langMenu?.dismiss() } catch (_: Exception) { }
+        if (keyboardView.windowToken == null) return
+        val d = resources.displayMetrics.density
+        val night = KeyboardView.isNight(this)
+        val fg = if (night) Color.parseColor("#F2F2F2") else Color.parseColor("#111111")
+        val sub = if (night) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
+        val border = if (night) Color.parseColor("#44FFFFFF") else Color.parseColor("#33000000")
+        val selBg = if (night) Color.parseColor("#454548") else Color.parseColor("#E4E4E4")
+        val menuW = (230 * d).toInt()
+        val pad = (6 * d).toInt()
+
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            elevation = 8 * d
+            background = GradientDrawable().apply {
+                cornerRadius = 16 * d
+                setColor(if (night) Color.parseColor("#2C2C2E") else Color.WHITE)
+                setStroke((1 * d).toInt(), border)
+            }
+        }
+        fun row(label: String, active: Boolean, muted: Boolean, onClick: () -> Unit) {
+            val tv = TextView(this).apply {
+                text = label
+                textSize = if (muted) 14f else 17f
+                typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+                setTextColor(if (muted) sub else fg)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding((14 * d).toInt(), 0, (14 * d).toInt(), 0)
+                background = GradientDrawable().apply {
+                    cornerRadius = 10 * d
+                    setColor(if (active) selBg else Color.TRANSPARENT)
+                    if (active) setStroke((1.5f * d).toInt(), fg)
+                }
+                setOnClickListener { try { langMenu?.dismiss() } catch (_: Exception) { }; onClick() }
+            }
+            box.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * d).toInt()).apply {
+                setMargins(0, (2 * d).toInt(), 0, (2 * d).toInt())
+            })
+        }
+        LayoutStorage.getEnabledLanguages(this).forEach { l ->
+            val name = Languages.nativeName(l) + if (Languages.badge(l).isNotEmpty()) "  " + Languages.badge(l) else ""
+            row(name, l == lang, false) { switchTo(l) }
+        }
+        row(otherKeyboardLabel(), false, true) {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+        }
+        box.measure(
+            View.MeasureSpec.makeMeasureSpec(menuW, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.UNSPECIFIED
+        )
+        val h = box.measuredHeight
+        val loc = IntArray(2)
+        keyboardView.getLocationOnScreen(loc)
+        val screenW = resources.displayMetrics.widthPixels
+        val x = (screenW / 2 - menuW / 2).coerceAtLeast(0)
+        val y = (loc[1] + keyboardView.height - h - (8 * d).toInt()).coerceAtLeast(0)
+        try {
+            langMenu = PopupWindow(box, menuW, h, false).apply {
+                isOutsideTouchable = true
+                isTouchable = true
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+                animationStyle = 0
+                showAtLocation(root, Gravity.NO_GRAVITY, x, y)
+            }
+        } catch (_: Exception) { langMenu = null }
     }
 
     private fun showEmoji() {
@@ -446,10 +540,7 @@ class YulemdoInputMethodService : InputMethodService() {
             SpecialCodes.SYMBOLS2 -> showPage(Page.SYM2)
             SpecialCodes.LETTERS -> showPage(Page.LETTERS)
             SpecialCodes.LANG_SWITCH -> cycleLanguage()
-            SpecialCodes.LANG_PICKER -> {
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showInputMethodPicker()
-            }
+            SpecialCodes.LANG_PICKER -> showLangMenu()
             SpecialCodes.EMOJI, "\uD83D\uDE42" -> showEmoji()
             SpecialCodes.SPACE -> { ic.commitText(" ", 1); lastChar = ' ' }
             else -> {

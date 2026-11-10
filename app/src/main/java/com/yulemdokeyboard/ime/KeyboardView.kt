@@ -543,9 +543,20 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    // Globus tugmasi bosib turilsa - tillar ro'yxati ochiladi
+    private val langLongRunnable = Runnable {
+        val k = pressedKey ?: return@Runnable
+        if (k.code != SpecialCodes.LANG_SWITCH) return@Runnable
+        longPressConsumed = true
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+        onKeyPressed?.invoke(KeyData("", SpecialCodes.LANG_PICKER, k.row, k.col, isSpecial = true))
+    }
+
     private fun showPreview(key: KeyData?) {
         dismissHint()
         previewHandler.removeCallbacks(hintPreviewRunnable)
+        previewHandler.removeCallbacks(langLongRunnable)
+        if (key?.code == SpecialCodes.LANG_SWITCH) previewHandler.postDelayed(langLongRunnable, 400L)
         previewKey = key
         if (key == null || key.isSpecial || key.label.isEmpty()) { hidePreview(); return }
         val rect = keyRects[key] ?: return
@@ -568,6 +579,7 @@ class KeyboardView @JvmOverloads constructor(
 
     private fun hidePreview() {
         previewHandler.removeCallbacks(hintPreviewRunnable)
+        previewHandler.removeCallbacks(langLongRunnable)
         previewKey = null
         dismissHint()
         try { previewPopup?.dismiss() } catch (e: Exception) { }
@@ -641,12 +653,7 @@ class KeyboardView @JvmOverloads constructor(
                 hidePreview()
                 invalidate()
                 if (key != null && !wasBackspace && !consumed) {
-                    if (key.code == SpecialCodes.LANG_SWITCH && held > 450) {
-                        // globus uzoq bosilsa: tizim klaviatura tanlagichi
-                        onKeyPressed?.invoke(KeyData("", SpecialCodes.LANG_PICKER, key.row, key.col, isSpecial = true))
-                    } else {
-                        onKeyPressed?.invoke(key)
-                    }
+                    onKeyPressed?.invoke(key)
                 }
                 return true
             }
