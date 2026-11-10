@@ -10,12 +10,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.Typeface
-import android.util.TypedValue
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.TextView
 import com.yulemdokeyboard.MainActivity
 import com.yulemdokeyboard.model.KeyData
 import com.yulemdokeyboard.model.KeyboardLayout
@@ -108,6 +105,7 @@ class YulemdoInputMethodService : InputMethodService() {
         )
         clipPanel = ClipboardPanel(
             this,
+            baseHeight = keyboardView.desiredHeight(4),
             onPaste = { text -> currentInputConnection?.commitText(text, 1); hideEmoji() },
             onBack = { hideEmoji() }
         )
@@ -125,37 +123,31 @@ class YulemdoInputMethodService : InputMethodService() {
         return root
     }
 
-    // ===== Klaviatura tepasidagi panel: emoji, klaviatura almashtirish, muharrir, sozlamalar =====
+    // ===== Klaviatura tepasidagi panel: emoji, klaviatura almashtirish, nusxalanganlar, sozlamalar =====
     private fun buildToolbar(): View {
         val night = KeyboardView.isNight(this)
-        val iconColor = if (night) Color.parseColor("#E8EAED") else Color.parseColor("#3C4043")
+        val iconColor = if (night) Color.parseColor("#F2F2F2") else Color.parseColor("#111111")
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(KeyboardView.backgroundColorFor(this@YulemdoInputMethodService))
         }
-        fun btn(glyph: String, onClick: () -> Unit) {
-            val tv = TextView(this).apply {
-                text = glyph
-                gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-                typeface = Typeface.DEFAULT
-                setTextColor(iconColor)
+        fun btn(type: IconView.Type, onClick: () -> Unit) {
+            val v = IconView(this, type, iconColor).apply {
                 isClickable = true
                 setOnClickListener {
                     performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                     onClick()
                 }
             }
-            bar.addView(tv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            bar.addView(v, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         }
-        // \uFE0E - belgini rangli emoji emas, oddiy matn ko'rinishida chizadi
-        btn("\u263A\uFE0E") { if (emojiPanel.visibility == View.VISIBLE) hideEmoji() else showEmoji() }
-        btn("\u2328\uFE0E") {
+        btn(IconView.Type.SMILE) { if (emojiPanel.visibility == View.VISIBLE) hideEmoji() else showEmoji() }
+        btn(IconView.Type.KEYBOARD) {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         }
-        btn("\uD83D\uDCCB\uFE0E") { if (clipPanel.visibility == View.VISIBLE) hideEmoji() else showClipboard() }
-        btn("\u2699\uFE0E") { openApp(MainActivity::class.java) }
+        btn(IconView.Type.CLIPBOARD) { if (clipPanel.visibility == View.VISIBLE) hideEmoji() else showClipboard() }
+        btn(IconView.Type.GEAR) { openApp(MainActivity::class.java) }
         return bar
     }
 
