@@ -42,11 +42,13 @@ private fun letterLayout(
 
     var col = 0
     keys.add(KeyData("", SpecialCodes.SYMBOLS, row = 3, col = col++, width = 1.3f, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.EMOJI, row = 3, col = col++, isSpecial = true))
     keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = col++, isSpecial = true))
-    val spaceW = 3.4f - 0.6f * (bottomExtras.size - 2)
+    // Vergul space'ning chap tomonida, qolgan belgilar (".", "ё" ...) o'ng tomonida
+    keys.add(KeyData(",", ",", row = 3, col = col++))
+    val rightExtras = bottomExtras.filter { it != "," }
+    val spaceW = 4.4f - 0.6f * (bottomExtras.size - 2)
     keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = col++, width = spaceW, isSpecial = true))
-    bottomExtras.forEach { keys.add(KeyData(it, it, row = 3, col = col++)) }
+    rightExtras.forEach { keys.add(KeyData(it, it, row = 3, col = col++)) }
     keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = col, width = 1.6f, isSpecial = true))
 
     return KeyboardLayout(name = name, rows = 4, cols = r0.size, keys = keys)
