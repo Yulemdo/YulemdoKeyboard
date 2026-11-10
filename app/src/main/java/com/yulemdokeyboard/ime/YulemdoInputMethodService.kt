@@ -17,7 +17,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.yulemdokeyboard.MainActivity
-import com.yulemdokeyboard.editor.LayoutEditorActivity
 import com.yulemdokeyboard.model.KeyData
 import com.yulemdokeyboard.model.KeyboardLayout
 import com.yulemdokeyboard.model.Languages
@@ -36,6 +35,9 @@ class YulemdoInputMethodService : InputMethodService() {
     private lateinit var root: LinearLayout
     private lateinit var keyboardView: KeyboardView
     private lateinit var emojiPanel: EmojiPanel
+    private lateinit var clipPanel: ClipboardPanel
+    private var clipManager: android.content.ClipboardManager? = null
+    private val clipListener = android.content.ClipboardManager.OnPrimaryClipChangedListener { captureClip() }
 
     private var page = Page.LETTERS
     private var lang = Languages.UZ
@@ -50,6 +52,31 @@ class YulemdoInputMethodService : InputMethodService() {
     private val kaa by lazy { karakalpakLayout() }
     private val en by lazy { englishLayout() }
     private val ru by lazy { russianLayout() }
+
+    override fun onCreate() {
+        super.onCreate()
+        try {
+            clipManager = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipManager?.addPrimaryClipChangedListener(clipListener)
+        } catch (_: Exception) { }
+    }
+
+    override fun onDestroy() {
+        try { clipManager?.removePrimaryClipChangedListener(clipListener) } catch (_: Exception) { }
+        super.onDestroy()
+    }
+
+    /** Nusxalangan matnni tarixga yozadi (oxirgi 30 ta). */
+    private fun captureClip() {
+        try {
+            val cm = clipManager ?: return
+            val clip = cm.primaryClip ?: return
+            if (clip.itemCount == 0) return
+            val t = clip.getItemAt(0).coerceToText(this)?.toString() ?: return
+            ClipStorage.addRecent(this, t)
+            if (::clipPanel.isInitialized && clipPanel.visibility == View.VISIBLE) clipPanel.refresh()
+        } catch (_: Exception) { }
+    }
 
     override fun onCreateInputView(): View {
         keyboardView = KeyboardView(this)
@@ -79,6 +106,16 @@ class YulemdoInputMethodService : InputMethodService() {
             emojiPanel,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardView.desiredHeight(4))
         )
+        clipPanel = ClipboardPanel(
+            this,
+            onPaste = { text -> currentInputConnection?.commitText(text, 1); hideEmoji() },
+            onBack = { hideEmoji() }
+        )
+        body.addView(
+            clipPanel,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardView.desiredHeight(4))
+        )
+        clipPanel.visibility = View.GONE
         root.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         emojiPanel.visibility = View.GONE
 
@@ -117,7 +154,7 @@ class YulemdoInputMethodService : InputMethodService() {
         btn("\u2328\uFE0E") {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         }
-        btn("\u25A6\uFE0E") { openApp(LayoutEditorActivity::class.java) }
+        btn("\uD83D\uDCCB\uFE0E") { if (clipPanel.visibility == View.VISIBLE) hideEmoji() else showClipboard() }
         btn("\u2699\uFE0E") { openApp(MainActivity::class.java) }
         return bar
     }
@@ -170,12 +207,22 @@ class YulemdoInputMethodService : InputMethodService() {
 
     private fun showEmoji() {
         keyboardView.visibility = View.GONE
+        clipPanel.visibility = View.GONE
         emojiPanel.visibility = View.VISIBLE
+    }
+
+    private fun showClipboard() {
+        captureClip()
+        clipPanel.setLang(lang)
+        keyboardView.visibility = View.GONE
+        emojiPanel.visibility = View.GONE
+        clipPanel.visibility = View.VISIBLE
     }
 
     private fun hideEmoji() {
         if (!::emojiPanel.isInitialized) return
         emojiPanel.visibility = View.GONE
+        if (::clipPanel.isInitialized) clipPanel.visibility = View.GONE
         keyboardView.visibility = View.VISIBLE
     }
 
