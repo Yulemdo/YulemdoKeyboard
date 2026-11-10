@@ -431,6 +431,12 @@ class KeyboardView @JvmOverloads constructor(
     private val previewH = (64f * dp).toInt()
     private val previewHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var previewKey: KeyData? = null
+    // Globus uzoq bosilganda ochiladigan til menyusi uchun: barmoq ko'tarilmasdan surib tanlash
+    var langMenuMove: ((Float, Float) -> Unit)? = null
+    var langMenuRelease: ((Float, Float) -> Unit)? = null
+    private var langMenuActive = false
+    fun keyRectFor(code: String): RectF? = keyRects.entries.firstOrNull { it.key.code == code }?.value
+
     private var longPressConsumed = false   // uzoq bosishda raqam yozilib bo'lsa, qo'yib yuborganda qayta yozilmaydi
 
     // Uzoq bosilganda (380ms) pop-up raqamga almashadi - nima yozilishini oldindan ko'rsatadi
@@ -548,6 +554,7 @@ class KeyboardView @JvmOverloads constructor(
         val k = pressedKey ?: return@Runnable
         if (k.code != SpecialCodes.LANG_SWITCH) return@Runnable
         longPressConsumed = true
+        langMenuActive = true
         performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
         onKeyPressed?.invoke(KeyData("", SpecialCodes.LANG_PICKER, k.row, k.col, isSpecial = true))
     }
@@ -616,6 +623,7 @@ class KeyboardView @JvmOverloads constructor(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                langMenuActive = false
                 val key = findKeyAt(event.x, event.y)
                 downTime = event.eventTime
                 stopRepeat()
@@ -631,6 +639,7 @@ class KeyboardView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (langMenuActive) { langMenuMove?.invoke(event.rawX, event.rawY); return true }
                 val key = findKeyAt(event.x, event.y)
                 if (key != pressedKey) {
                     stopRepeat()
@@ -643,6 +652,16 @@ class KeyboardView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_UP -> {
+                if (langMenuActive) {
+                    langMenuActive = false
+                    longPressConsumed = false
+                    stopRepeat()
+                    pressedKey = null
+                    hidePreview()
+                    invalidate()
+                    langMenuRelease?.invoke(event.rawX, event.rawY)
+                    return true
+                }
                 val key = findKeyAt(event.x, event.y)
                 val held = event.eventTime - downTime
                 val wasBackspace = backspaceHeld
@@ -658,6 +677,8 @@ class KeyboardView @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                langMenuActive = false
+                langMenuMove?.invoke(-1f, -1f)
                 longPressConsumed = false
                 stopRepeat()
                 hidePreview()

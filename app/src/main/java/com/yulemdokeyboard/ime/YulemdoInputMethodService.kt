@@ -357,7 +357,11 @@ class YulemdoInputMethodService : InputMethodService() {
         else -> "Boşqa klaviatura"
     }
 
-    /** Globus tugmasi bosib turilganda: yoqilgan tillar ro'yxati, bittasini bossangiz darhol shu tilga o'tadi. */
+    /**
+     * Globus tugmasi bosib turilganda: yoqilgan tillar ro'yxati globus ustida ochiladi.
+     * Barmoqni ko'tarmasdan ro'yxat bo'ylab surib, kerakli tilda qo'yib yuborsangiz - shu tilga o'tadi.
+     * Qo'yib yuborganda hech qaysi qatorga tushmasa, menyu ochiq qoladi va qatorni bosib tanlash mumkin.
+     */
     private fun showLangMenu() {
         try { langMenu?.dismiss() } catch (_: Exception) { }
         if (keyboardView.windowToken == null) return
@@ -367,8 +371,10 @@ class YulemdoInputMethodService : InputMethodService() {
         val sub = if (night) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
         val border = if (night) Color.parseColor("#44FFFFFF") else Color.parseColor("#33000000")
         val selBg = if (night) Color.parseColor("#454548") else Color.parseColor("#E4E4E4")
+        val hoverBg = Color.parseColor("#FFC107")
         val menuW = (230 * d).toInt()
         val pad = (6 * d).toInt()
+        val screenW = resources.displayMetrics.widthPixels
 
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -380,6 +386,16 @@ class YulemdoInputMethodService : InputMethodService() {
                 setStroke((1 * d).toInt(), border)
             }
         }
+
+        class MenuRow(val tv: TextView, val active: Boolean, val muted: Boolean, val onClick: () -> Unit)
+        val rows = ArrayList<MenuRow>()
+
+        fun baseBg(active: Boolean) = GradientDrawable().apply {
+            cornerRadius = 10 * d
+            setColor(if (active) selBg else Color.TRANSPARENT)
+            if (active) setStroke((1.5f * d).toInt(), fg)
+        }
+
         fun row(label: String, active: Boolean, muted: Boolean, onClick: () -> Unit) {
             val tv = TextView(this).apply {
                 text = label
@@ -388,16 +404,13 @@ class YulemdoInputMethodService : InputMethodService() {
                 setTextColor(if (muted) sub else fg)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding((14 * d).toInt(), 0, (14 * d).toInt(), 0)
-                background = GradientDrawable().apply {
-                    cornerRadius = 10 * d
-                    setColor(if (active) selBg else Color.TRANSPARENT)
-                    if (active) setStroke((1.5f * d).toInt(), fg)
-                }
+                background = baseBg(active)
                 setOnClickListener { try { langMenu?.dismiss() } catch (_: Exception) { }; onClick() }
             }
-            box.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * d).toInt()).apply {
+            box.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (46 * d).toInt()).apply {
                 setMargins(0, (2 * d).toInt(), 0, (2 * d).toInt())
             })
+            rows.add(MenuRow(tv, active, muted, onClick))
         }
         LayoutStorage.getEnabledLanguages(this).forEach { l ->
             val name = Languages.nativeName(l) + if (Languages.badge(l).isNotEmpty()) "  " + Languages.badge(l) else ""
@@ -411,11 +424,45 @@ class YulemdoInputMethodService : InputMethodService() {
             View.MeasureSpec.UNSPECIFIED
         )
         val h = box.measuredHeight
+
+        // Menyu globus tugmasi ustida, uning chap chetiga tekislab ochiladi (barmoq tagida qolmaydi)
         val loc = IntArray(2)
         keyboardView.getLocationOnScreen(loc)
-        val screenW = resources.displayMetrics.widthPixels
-        val x = (screenW / 2 - menuW / 2).coerceAtLeast(0)
-        val y = (loc[1] + keyboardView.height - h - (8 * d).toInt()).coerceAtLeast(0)
+        val keyRect = keyboardView.keyRectFor(SpecialCodes.LANG_SWITCH)
+        val x = ((loc[0] + (keyRect?.left ?: 0f)).toInt()).coerceIn(0, (screenW - menuW).coerceAtLeast(0))
+        val keyTop = loc[1] + (keyRect?.top ?: (keyboardView.height / 2f))
+        val y = (keyTop - h - 6 * d).toInt().coerceAtLeast(0)
+
+        // Barmoq ustidagi qatorni ajratib ko'rsatish
+        fun rowAt(rx: Float, ry: Float): MenuRow? {
+            val p = IntArray(2)
+            for (r in rows) {
+                r.tv.getLocationOnScreen(p)
+                if (rx >= p[0] && rx <= p[0] + r.tv.width && ry >= p[1] && ry <= p[1] + r.tv.height) return r
+            }
+            return null
+        }
+        fun highlight(target: MenuRow?) {
+            rows.forEach { r ->
+                if (r === target) {
+                    r.tv.background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(hoverBg) }
+                    r.tv.setTextColor(Color.BLACK)
+                } else {
+                    r.tv.background = baseBg(r.active)
+                    r.tv.setTextColor(if (r.muted) sub else fg)
+                }
+            }
+        }
+        keyboardView.langMenuMove = { rx, ry -> highlight(rowAt(rx, ry)) }
+        keyboardView.langMenuRelease = { rx, ry ->
+            val target = rowAt(rx, ry)
+            if (target != null) {
+                try { langMenu?.dismiss() } catch (_: Exception) { }
+                target.onClick()
+            } else {
+                highlight(null)   // menyu ochiq qoladi - qatorni bosib tanlash mumkin
+            }
+        }
         try {
             langMenu = PopupWindow(box, menuW, h, false).apply {
                 isOutsideTouchable = true
