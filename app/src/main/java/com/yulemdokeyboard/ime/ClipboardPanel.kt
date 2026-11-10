@@ -9,6 +9,9 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -104,178 +107,196 @@ private fun clipStrings(lang: String) = when (lang) {
 
 class ClipboardPanel(
     context: Context,
+    private val baseHeight: Int,
     private val onPaste: (String) -> Unit,
     private val onBack: () -> Unit
 ) : LinearLayout(context) {
 
     private val dp = resources.displayMetrics.density
     private var lang = Languages.UZ
-    private val expanded = HashSet<String>()
+    private var longMode = false   // false: bitta qatorli qisqa ro'yxat, true: uzun (katta) setka
 
     private val night = KeyboardView.isNight(context)
-    private val textColor = if (night) Color.parseColor("#E8EAED") else Color.parseColor("#202124")
-    private val subColor = if (night) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
-    private val itemBg = if (night) Color.parseColor("#2C2C2E") else Color.WHITE
-    private val fire = Color.parseColor("#FFC107")
+    private val fg = if (night) Color.parseColor("#F2F2F2") else Color.parseColor("#111111")
+    private val sub = if (night) Color.parseColor("#9AA0A6") else Color.parseColor("#5F6368")
+    private val tileBg = if (night) Color.parseColor("#2A2A2C") else Color.WHITE
+    private val tileBorder = if (night) Color.parseColor("#44FFFFFF") else Color.parseColor("#33000000")
+
+    private val tile = (66 * dp).toInt()
+    private val gap = (4 * dp).toInt()
 
     private val recentTitle = TextView(context)
     private val pinnedTitle = TextView(context)
-    private val clearBtn = TextView(context)
-    private val recentList = LinearLayout(context).apply { orientation = VERTICAL }
-    private val pinnedList = LinearLayout(context).apply { orientation = VERTICAL }
+    private val toggleBtn = TextView(context)
+    private val clearBtn = IconView(context, IconView.Type.TRASH, fg)
+    private val recentHolder = FrameLayout(context)
+    private val pinnedHolder = HorizontalScrollView(context)
 
     init {
         orientation = VERTICAL
         setBackgroundColor(KeyboardView.backgroundColorFor(context))
 
-        // 1-sarlavha: ABC | Oxirgi nusxalanganlar (n/30) | Tozalash
+        // 1-sarlavha: ABC | Oxirgi nusxalanganlar (n/30) | Uzun/Qisqa | chiqitga
         val h1 = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
-        h1.addView(pill("ABC", true).apply { setOnClickListener { onBack() } },
-            LayoutParams((52 * dp).toInt(), (30 * dp).toInt()).apply { marginStart = (8 * dp).toInt() })
-        styleHeader(recentTitle)
-        h1.addView(recentTitle, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        clearBtn.apply {
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setTextColor(fire)
+        h1.addView(pill("ABC").apply { setPadding(0, 0, 0, 0); setOnClickListener { onBack() } },
+            LayoutParams((50 * dp).toInt(), (30 * dp).toInt()).apply { marginStart = (8 * dp).toInt() })
+        recentTitle.apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            setTextColor(sub)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding((12 * dp).toInt(), (6 * dp).toInt(), (12 * dp).toInt(), (6 * dp).toInt())
-            setOnClickListener { ClipStorage.clearRecent(context); refresh() }
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding((10 * dp).toInt(), 0, (6 * dp).toInt(), 0)
         }
-        h1.addView(clearBtn)
+        h1.addView(recentTitle, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        stylePill(toggleBtn)
+        toggleBtn.setOnClickListener { setLongMode(!longMode) }
+        h1.addView(toggleBtn, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (30 * dp).toInt()).apply { marginEnd = (4 * dp).toInt() })
+        clearBtn.setOnClickListener { ClipStorage.clearRecent(context); refresh() }
+        h1.addView(clearBtn, LayoutParams((40 * dp).toInt(), (40 * dp).toInt()))
         addView(h1, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (40 * dp).toInt()))
 
-        addView(scroll(recentList), LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        addView(recentHolder, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        // 2-sarlavha: Pinlangan (n/25)
-        styleHeader(pinnedTitle)
-        pinnedTitle.setPadding((14 * dp).toInt(), 0, 0, 0)
-        addView(pinnedTitle, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (32 * dp).toInt()))
-        addView(scroll(pinnedList), LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        // Pinlanganlar doim pastda
+        pinnedTitle.apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            setTextColor(sub)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((12 * dp).toInt(), 0, 0, 0)
+        }
+        addView(pinnedTitle, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (26 * dp).toInt()))
+        pinnedHolder.isHorizontalScrollBarEnabled = false
+        pinnedHolder.overScrollMode = OVER_SCROLL_NEVER
+        addView(pinnedHolder, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tile + 2 * gap + (4 * dp).toInt()))
     }
 
     fun setLang(l: String) { lang = l; refresh() }
 
-    private fun scroll(inner: View) = ScrollView(context).apply {
-        isVerticalScrollBarEnabled = false
-        overScrollMode = OVER_SCROLL_NEVER
-        addView(inner)
+    private fun setLongMode(v: Boolean) {
+        longMode = v
+        layoutParams?.let {
+            it.height = if (v) baseHeight * 7 / 4 else baseHeight
+            layoutParams = it
+        }
+        refresh()
     }
 
-    private fun styleHeader(tv: TextView) = tv.apply {
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-        setTextColor(subColor)
-        typeface = Typeface.DEFAULT_BOLD
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding((10 * dp).toInt(), 0, 0, 0)
-    }
-
-    private fun pill(label: String, filled: Boolean) = TextView(context).apply {
-        text = label
+    private fun stylePill(t: TextView): TextView = t.apply {
         gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(if (filled) Color.WHITE else textColor)
+        setTextColor(fg)
+        setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), 0)
         background = GradientDrawable().apply {
             cornerRadius = 15 * dp
-            if (filled) {
-                colors = intArrayOf(Color.parseColor("#FF3D00"), Color.parseColor("#FFC107"))
-                orientation = GradientDrawable.Orientation.LEFT_RIGHT
-            } else setColor(itemBg)
+            setColor(tileBg)
+            setStroke((1 * dp).toInt(), tileBorder)
         }
     }
+
+    private fun pill(label: String) = stylePill(TextView(context)).apply { text = label }
 
     fun refresh() {
         val s = clipStrings(lang)
         val recent = ClipStorage.recent(context)
         val pinned = ClipStorage.pinned(context)
         recentTitle.text = "${s.recent} (${recent.size}/${ClipStorage.MAX_RECENT})"
-        pinnedTitle.text = "\uD83D\uDCCC ${s.pinned} (${pinned.size}/${ClipStorage.MAX_PINNED})"
-        clearBtn.text = s.clear
+        pinnedTitle.text = "${s.pinned} (${pinned.size}/${ClipStorage.MAX_PINNED})"
+        toggleBtn.text = if (longMode) s.showLess else s.showFull
         clearBtn.visibility = if (recent.isEmpty()) View.GONE else View.VISIBLE
-        fill(recentList, recent, false, s)
-        fill(pinnedList, pinned, true, s)
-    }
 
-    private fun fill(parent: LinearLayout, items: List<String>, isPinned: Boolean, s: ClipStrings) {
-        parent.removeAllViews()
-        if (items.isEmpty()) {
-            parent.addView(TextView(context).apply {
-                text = s.empty
-                setTextColor(subColor)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                gravity = Gravity.CENTER
-                setPadding(0, (10 * dp).toInt(), 0, (10 * dp).toInt())
-            }, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            return
+        // ----- oxirgilar -----
+        recentHolder.removeAllViews()
+        if (recent.isEmpty()) {
+            recentHolder.addView(emptyText(s.empty), FrameLayout.LayoutParams(-1, -1))
+        } else if (longMode) {
+            val cols = ((resources.displayMetrics.widthPixels - 8 * dp) / (tile + 2 * gap)).toInt().coerceAtLeast(3)
+            val grid = GridLayout(context).apply { columnCount = cols }
+            recent.forEach { t ->
+                grid.addView(tileView(t, false, s), GridLayout.LayoutParams().apply {
+                    width = tile; height = tile
+                    setMargins(gap, gap, gap, gap)
+                })
+            }
+            val sv = ScrollView(context).apply {
+                isVerticalScrollBarEnabled = false
+                overScrollMode = OVER_SCROLL_NEVER
+                setPadding((4 * dp).toInt(), 0, (4 * dp).toInt(), 0)
+                addView(grid)
+            }
+            recentHolder.addView(sv, FrameLayout.LayoutParams(-1, -1))
+        } else {
+            recentHolder.addView(rowOf(recent, false, s), FrameLayout.LayoutParams(-1, -1))
         }
-        items.forEach { parent.addView(itemView(it, isPinned, s), itemLp()) }
+
+        // ----- pinlangan -----
+        pinnedHolder.removeAllViews()
+        if (pinned.isEmpty()) pinnedHolder.addView(emptyText(s.empty).apply {
+            layoutParams = ViewGroup.LayoutParams(resources.displayMetrics.widthPixels, tile)
+        })
+        else pinnedHolder.addView(rowInner(pinned, true, s))
     }
 
-    private fun itemLp() = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-        setMargins((8 * dp).toInt(), (3 * dp).toInt(), (8 * dp).toInt(), (3 * dp).toInt())
+    private fun emptyText(t: String) = TextView(context).apply {
+        text = t
+        setTextColor(sub)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        gravity = Gravity.CENTER
     }
 
-    private fun itemView(text: String, isPinned: Boolean, s: ClipStrings): View {
-        val isLong = text.length > 60 || text.count { it == '\n' } >= 2
-        val open = expanded.contains(text)
+    private fun rowOf(items: List<String>, isPinned: Boolean, s: ClipStrings): View =
+        HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = OVER_SCROLL_NEVER
+            addView(rowInner(items, isPinned, s))
+        }
 
-        val row = LinearLayout(context).apply {
+    private fun rowInner(items: List<String>, isPinned: Boolean, s: ClipStrings): LinearLayout =
+        LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(gap * 2, gap, gap * 2, gap)
+            items.forEach { addView(tileView(it, isPinned, s), LayoutParams(tile, tile).apply { setMargins(gap, 0, gap, 0) }) }
+        }
+
+    /** Kvadrat katakcha: matn (3 qatorgacha, uzun bo'lsa "...") + pastda pin va o'chirish. */
+    private fun tileView(text: String, isPinned: Boolean, s: ClipStrings): View {
+        val box = LinearLayout(context).apply {
+            orientation = VERTICAL
             background = GradientDrawable().apply {
-                cornerRadius = 12 * dp
-                setColor(itemBg)
-                if (isPinned) setStroke((1 * dp).toInt(), fire)
+                cornerRadius = 10 * dp
+                setColor(tileBg)
+                setStroke(((if (isPinned) 1.6f else 1f) * dp).toInt(), if (isPinned) fg else tileBorder)
             }
-            setPadding((12 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt())
+            setPadding((6 * dp).toInt(), (5 * dp).toInt(), (3 * dp).toInt(), (2 * dp).toInt())
             setOnClickListener { onPaste(text) }
         }
-
-        val col = LinearLayout(context).apply { orientation = VERTICAL }
-        col.addView(TextView(context).apply {
+        box.addView(TextView(context).apply {
             this.text = text
-            setTextColor(textColor)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            if (open) maxLines = 30 else { maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
-        })
-        if (isLong) {
-            col.addView(TextView(context).apply {
-                this.text = if (open) s.showLess else s.showFull
-                setTextColor(fire)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(0, (4 * dp).toInt(), 0, (2 * dp).toInt())
-                setOnClickListener {
-                    if (open) expanded.remove(text) else expanded.add(text)
-                    refresh()
-                }
-            })
-        }
-        row.addView(col, LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            setTextColor(fg)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            maxLines = 3
+            ellipsize = TextUtils.TruncateAt.END
+        }, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        // pin / unpin
-        row.addView(iconBtn("\uD83D\uDCCC", if (isPinned) 1f else 0.4f) {
-            if (isPinned) ClipStorage.unpin(context, text)
-            else if (!ClipStorage.pin(context, text)) {
-                Toast.makeText(context, s.limit, Toast.LENGTH_SHORT).show()
+        val bar = LinearLayout(context).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+        val sz = (22 * dp).toInt()
+        bar.addView(IconView(context, IconView.Type.PIN, if (isPinned) fg else sub, filled = isPinned).apply {
+            setOnClickListener {
+                if (isPinned) ClipStorage.unpin(context, text)
+                else if (!ClipStorage.pin(context, text)) Toast.makeText(context, s.limit, Toast.LENGTH_SHORT).show()
+                refresh()
             }
-            refresh()
-        })
-        // o'chirish
-        row.addView(iconBtn("\u2715", 0.7f) {
-            if (isPinned) ClipStorage.removePinned(context, text) else ClipStorage.removeRecent(context, text)
-            refresh()
-        })
-        return row
-    }
-
-    private fun iconBtn(glyph: String, alpha: Float, onClick: () -> Unit) = TextView(context).apply {
-        text = glyph
-        gravity = Gravity.CENTER
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        setTextColor(textColor)
-        this.alpha = alpha
-        setOnClickListener { onClick() }
-        layoutParams = LayoutParams((40 * dp).toInt(), (40 * dp).toInt())
+        }, LayoutParams(sz, sz))
+        bar.addView(IconView(context, IconView.Type.CLOSE, sub).apply {
+            setOnClickListener {
+                if (isPinned) ClipStorage.removePinned(context, text) else ClipStorage.removeRecent(context, text)
+                refresh()
+            }
+        }, LayoutParams(sz, sz))
+        box.addView(bar, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, sz))
+        return box
     }
 }
