@@ -89,6 +89,6 @@ fun russianLayout(): KeyboardLayout = letterLayout(
     "Русский",
     listOf("й", "ц", "у", "к", "е", "н", "г", "ш", "щ", "з", "х"),
     listOf("ф", "ы", "в", "а", "п", "р", "о", "л", "д", "ж", "э"),
-    listOf("я", "ч", "с", "м", "и", "т", "ь", "б", "ю", "ъ"),
-    bottomExtras = listOf("ё", ",", ".")
+    // "ъ" alohida tugma emas: "ь" ni bosib tursangiz "ъ" yoziladi. "ё" ham alohida emas: "е" ni bosib turing.
+    listOf("я", "ч", "с", "м", "и", "т", "ь", "б", "ю")
 )
