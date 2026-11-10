@@ -21,7 +21,10 @@ class IconView(
     var filled: Boolean = false
 ) : View(context) {
 
-    enum class Type { SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK, FONT }
+    enum class Type {
+        SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK, FONT,
+        CLOCK, HAND, PAW, FOOD, BALL, CAR, BULB, HEART, FLAG, BACKSPACE
+    }
 
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -100,6 +103,93 @@ class IconView(
                 val c = Paint(stroke).apply { color = if (color == android.graphics.Color.WHITE || android.graphics.Color.red(color) > 128) android.graphics.Color.BLACK else android.graphics.Color.WHITE; strokeWidth = 2.4f }
                 canvas.drawLine(7f, 12.5f, 10.7f, 16f, c)
                 canvas.drawLine(10.7f, 16f, 17f, 8.5f, c)
+            }
+            Type.CLOCK -> {
+                canvas.drawCircle(12f, 12f, 9f, stroke)
+                canvas.drawLine(12f, 6.5f, 12f, 12f, stroke)
+                canvas.drawLine(12f, 12f, 15.8f, 14.2f, stroke)
+            }
+            Type.HAND -> {
+                canvas.drawLine(8.5f, 12f, 8.5f, 6.5f, stroke)
+                canvas.drawLine(11.5f, 12f, 11.5f, 4f, stroke)
+                canvas.drawLine(14.5f, 12f, 14.5f, 4.8f, stroke)
+                canvas.drawLine(17.5f, 12f, 17.5f, 7.5f, stroke)
+                val palm = Path().apply {
+                    moveTo(8.5f, 12f); lineTo(8.5f, 16f)
+                    quadTo(8.5f, 20.5f, 13f, 20.5f)
+                    quadTo(17.5f, 20.5f, 17.5f, 16f)
+                    lineTo(17.5f, 12f)
+                }
+                canvas.drawPath(palm, stroke)
+                canvas.drawLine(8.5f, 15.2f, 5.6f, 11.8f, stroke)
+            }
+            Type.PAW -> {
+                canvas.drawOval(RectF(7.2f, 12.5f, 16.8f, 20f), stroke)
+                canvas.drawCircle(5.8f, 10.8f, 1.7f, stroke)
+                canvas.drawCircle(9.6f, 6.4f, 1.7f, stroke)
+                canvas.drawCircle(14.4f, 6.4f, 1.7f, stroke)
+                canvas.drawCircle(18.2f, 10.8f, 1.7f, stroke)
+            }
+            Type.FOOD -> {
+                canvas.drawOval(RectF(5.2f, 8f, 18.8f, 21f), stroke)
+                canvas.drawLine(12f, 8.5f, 12.6f, 4.5f, stroke)
+                canvas.drawLine(12.8f, 5.6f, 16.5f, 3.8f, stroke)
+            }
+            Type.BALL -> {
+                canvas.drawCircle(12f, 12f, 9f, stroke)
+                canvas.drawLine(12f, 3f, 12f, 21f, stroke)
+                canvas.drawLine(3f, 12f, 21f, 12f, stroke)
+                canvas.drawArc(RectF(-6f, 3f, 6f, 21f), -60f, 120f, false, stroke)
+                canvas.drawArc(RectF(18f, 3f, 30f, 21f), 120f, 120f, false, stroke)
+            }
+            Type.CAR -> {
+                val body = Path().apply {
+                    moveTo(3f, 14f); lineTo(5.5f, 8.8f); lineTo(18.5f, 8.8f)
+                    lineTo(21f, 14f); lineTo(21f, 17.5f); lineTo(3f, 17.5f); close()
+                }
+                canvas.drawPath(body, stroke)
+                canvas.drawLine(3f, 14f, 21f, 14f, stroke)
+                canvas.drawCircle(7.5f, 18f, 2f, stroke)
+                canvas.drawCircle(16.5f, 18f, 2f, stroke)
+            }
+            Type.BULB -> {
+                canvas.drawCircle(12f, 9.5f, 6f, stroke)
+                canvas.drawLine(9.6f, 14.4f, 9.6f, 17f, stroke)
+                canvas.drawLine(14.4f, 14.4f, 14.4f, 17f, stroke)
+                canvas.drawLine(9.6f, 17f, 14.4f, 17f, stroke)
+                canvas.drawLine(10.2f, 20f, 13.8f, 20f, stroke)
+            }
+            Type.HEART -> {
+                val h = Path().apply {
+                    moveTo(12f, 20f)
+                    cubicTo(4f, 14.5f, 3.5f, 8.5f, 7.5f, 6.2f)
+                    cubicTo(9.5f, 5f, 11.3f, 6.2f, 12f, 8f)
+                    cubicTo(12.7f, 6.2f, 14.5f, 5f, 16.5f, 6.2f)
+                    cubicTo(20.5f, 8.5f, 20f, 14.5f, 12f, 20f)
+                    close()
+                }
+                canvas.drawPath(h, stroke)
+            }
+            Type.FLAG -> {
+                canvas.drawLine(6f, 3.5f, 6f, 21f, stroke)
+                val f = Path().apply {
+                    moveTo(6f, 4.5f)
+                    quadTo(10f, 2.5f, 13f, 4.5f)
+                    quadTo(16f, 6.5f, 19f, 4.5f)
+                    lineTo(19f, 13f)
+                    quadTo(16f, 15f, 13f, 13f)
+                    quadTo(10f, 11f, 6f, 13f)
+                }
+                canvas.drawPath(f, stroke)
+            }
+            Type.BACKSPACE -> {
+                val b = Path().apply {
+                    moveTo(2.5f, 12f); lineTo(7.5f, 5.5f); lineTo(21.5f, 5.5f)
+                    lineTo(21.5f, 18.5f); lineTo(7.5f, 18.5f); close()
+                }
+                canvas.drawPath(b, stroke)
+                canvas.drawLine(12.2f, 9.2f, 17.2f, 14.8f, stroke)
+                canvas.drawLine(17.2f, 9.2f, 12.2f, 14.8f, stroke)
             }
             Type.CLOSE -> {
                 canvas.drawLine(6f, 6f, 18f, 18f, stroke)
