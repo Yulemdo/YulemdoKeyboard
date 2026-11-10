@@ -21,7 +21,7 @@ class IconView(
     var filled: Boolean = false
 ) : View(context) {
 
-    enum class Type { SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH }
+    enum class Type { SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK }
 
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -87,6 +87,12 @@ class IconView(
                 }
                 canvas.drawPath(p, stroke)
                 canvas.drawLine(12f, 14f, 12f, 21f, stroke)
+            }
+            Type.CHECK -> {
+                canvas.drawCircle(12f, 12f, 10f, fill)
+                val c = Paint(stroke).apply { color = if (color == android.graphics.Color.WHITE || android.graphics.Color.red(color) > 128) android.graphics.Color.BLACK else android.graphics.Color.WHITE; strokeWidth = 2.4f }
+                canvas.drawLine(7f, 12.5f, 10.7f, 16f, c)
+                canvas.drawLine(10.7f, 16f, 17f, 8.5f, c)
             }
             Type.CLOSE -> {
                 canvas.drawLine(6f, 6f, 18f, 18f, stroke)
