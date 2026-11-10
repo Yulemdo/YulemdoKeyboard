@@ -46,6 +46,9 @@ class KeyboardView @JvmOverloads constructor(
     var capsLock = false
     var highlightCode: String? = null   // tanlangan tab (emoji paneli) uchun olovrang ajratish
     var spaceLabel = ""                 // space tugmasi ustidagi til nomi
+    // Uzoq bosilganda yoziladigan muqobil belgilar (masalan rus tilida "е" -> "ё", "ь" -> "ъ").
+    // Bunday tugmalar raqam ishorasini olmaydi, raqamlar qolgan harflarga bittadan suriladi.
+    var altKeys: Map<String, String> = emptyMap()
     var spaceBadge = ""                 // til nomi yonidagi belgi (masalan V3)
 
     private val dp = resources.displayMetrics.density
@@ -210,12 +213,17 @@ class KeyboardView @JvmOverloads constructor(
             var x = (width - rowW) / 2f
             val y = vertPad + r * (rowHeightPx + rowGapPx)
 
+            var digitIdx = 0
             rowKeys.forEachIndexed { i, k ->
                 val w = unit * k.width
                 keyRects[k] = RectF(x, y, x + w, y + rowHeightPx)
                 x += w + colGapPx
-                // 1-qatordagi birinchi 10 ta harfga raqam ishorasi
-                if (r == 0 && i < 10 && !k.isSpecial && k.label.firstOrNull()?.isLetter() == true) hints[k] = ((i + 1) % 10).toString()
+                // Muqobil belgi (ё, ъ) yoki 1-qatordagi birinchi 10 ta harfga raqam ishorasi
+                if (!k.isSpecial && k.label.firstOrNull()?.isLetter() == true) {
+                    val alt = altKeys[k.code]
+                    if (alt != null) hints[k] = alt
+                    else if (r == 0 && digitIdx < 10) { hints[k] = ((digitIdx + 1) % 10).toString(); digitIdx++ }
+                }
             }
         }
     }

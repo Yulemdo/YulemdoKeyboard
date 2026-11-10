@@ -40,6 +40,11 @@ class YulemdoInputMethodService : InputMethodService() {
     private lateinit var emojiPanel: EmojiPanel
     private lateinit var clipPanel: ClipboardPanel
     private var fontStyle: FontStyles.Style? = null
+    // Emoji qidiruvi: yozilgan harflar kiritish maydoniga emas, qidiruv so'rovi sifatida yig'iladi
+    private var searchMode = false
+    private val searchQuery = StringBuilder()
+    private var toolbarView: View? = null
+    private var panelHeightPx = 0
     private lateinit var fontIcon: IconView
     private var fontMenu: PopupWindow? = null
     private var lastLen = 1
@@ -93,7 +98,9 @@ class YulemdoInputMethodService : InputMethodService() {
             this,
             onEmoji = { currentInputConnection?.commitText(it, 1) },
             onBackspace = { deleteBackward() },
-            onBack = { hideEmoji() }
+            onBack = { hideEmoji() },
+            onSearch = { enterEmojiSearch() },
+            onExitSearch = { exitEmojiSearch() }
         )
 
         root = LinearLayout(this).apply {
@@ -104,24 +111,26 @@ class YulemdoInputMethodService : InputMethodService() {
             buildToolbar(),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * resources.displayMetrics.density).toInt())
         )
-        val body = FrameLayout(this)
-        body.addView(
-            keyboardView,
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        )
+        panelHeightPx = keyboardView.desiredHeight(4)
+        // Vertikal: emoji paneli (qidiruvda yuqorida), nusxalar paneli, klaviatura
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         body.addView(
             emojiPanel,
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardView.desiredHeight(4))
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, panelHeightPx)
         )
         clipPanel = ClipboardPanel(
             this,
-            baseHeight = keyboardView.desiredHeight(4),
+            baseHeight = panelHeightPx,
             onPaste = { text -> currentInputConnection?.commitText(text, 1); hideEmoji() },
             onBack = { hideEmoji() }
         )
         body.addView(
             clipPanel,
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardView.desiredHeight(4))
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, panelHeightPx)
+        )
+        body.addView(
+            keyboardView,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
         clipPanel.visibility = View.GONE
         root.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -171,6 +180,7 @@ class YulemdoInputMethodService : InputMethodService() {
         refreshFontIcon()
         btn(IconView.Type.CLIPBOARD) { if (clipPanel.visibility == View.VISIBLE) hideEmoji() else showClipboard() }
         btn(IconView.Type.GEAR) { openApp(MainActivity::class.java) }
+        toolbarView = bar
         return bar
     }
 
@@ -313,6 +323,8 @@ class YulemdoInputMethodService : InputMethodService() {
         shiftOn = false
         capsLock = false
         syncShift()
+        keyboardView.altKeys =
+            if (lang == Languages.RU && p == Page.LETTERS) mapOf("е" to "ё", "ь" to "ъ") else emptyMap()
         keyboardView.layoutModel = when (p) {
             Page.LETTERS -> letterLayout()
             Page.SYM1 -> sym1
@@ -475,6 +487,67 @@ class YulemdoInputMethodService : InputMethodService() {
         } catch (_: Exception) { langMenu = null }
     }
 
+    // ===== Emoji qidiruvi =====
+    private fun setEmojiPanelHeight(h: Int) {
+        val lp = emojiPanel.layoutParams ?: return
+        lp.height = h
+        emojiPanel.layoutParams = lp
+    }
+
+    private fun enterEmojiSearch() {
+        searchMode = true
+        searchQuery.setLength(0)
+        emojiPanel.beginSearch(lang)
+        setEmojiPanelHeight(ViewGroup.LayoutParams.WRAP_CONTENT)
+        toolbarView?.visibility = View.GONE
+        keyboardView.visibility = View.VISIBLE
+        showPage(Page.LETTERS)
+    }
+
+    /** Qidiruv rejimidan chiqadi (emoji katalogiga qaytadi). */
+    private fun leaveSearchMode() {
+        searchMode = false
+        searchQuery.setLength(0)
+        emojiPanel.endSearch()
+        setEmojiPanelHeight(panelHeightPx)
+        toolbarView?.visibility = View.VISIBLE
+    }
+
+    private fun exitEmojiSearch() {
+        leaveSearchMode()
+        keyboardView.visibility = View.GONE
+        emojiPanel.visibility = View.VISIBLE
+    }
+
+    /** true - tugma qidiruv uchun ishlatildi; false - odatdagidek ishlanadi (shift, til almashtirish, belgilar sahifasi). */
+    private fun handleSearchKey(key: KeyData): Boolean {
+        when (key.code) {
+            SpecialCodes.BACKSPACE -> {
+                if (searchQuery.isNotEmpty()) {
+                    val cp = Character.codePointBefore(searchQuery, searchQuery.length)
+                    searchQuery.setLength(searchQuery.length - Character.charCount(cp))
+                    emojiPanel.setQuery(searchQuery.toString())
+                }
+                return true
+            }
+            SpecialCodes.ENTER, SpecialCodes.EMOJI, "\uD83D\uDE42", SpecialCodes.LANG_PICKER -> return true
+            SpecialCodes.SHIFT, SpecialCodes.SYMBOLS, SpecialCodes.SYMBOLS1, SpecialCodes.SYMBOLS2,
+            SpecialCodes.LETTERS -> return false
+            SpecialCodes.LANG_SWITCH -> {
+                cycleLanguage()
+                emojiPanel.setLang(lang)
+                return true
+            }
+            SpecialCodes.SPACE -> searchQuery.append(' ')
+            else -> {
+                searchQuery.append(if (shiftOn) key.code.lowercase() else key.code)
+                if (shiftOn && !capsLock) { shiftOn = false; syncShift() }
+            }
+        }
+        emojiPanel.setQuery(searchQuery.toString())
+        return true
+    }
+
     private fun showEmoji() {
         keyboardView.visibility = View.GONE
         clipPanel.visibility = View.GONE
@@ -491,6 +564,7 @@ class YulemdoInputMethodService : InputMethodService() {
 
     private fun hideEmoji() {
         if (!::emojiPanel.isInitialized) return
+        if (searchMode) leaveSearchMode()
         emojiPanel.visibility = View.GONE
         if (::clipPanel.isInitialized) clipPanel.visibility = View.GONE
         keyboardView.visibility = View.VISIBLE
@@ -564,6 +638,7 @@ class YulemdoInputMethodService : InputMethodService() {
     }
 
     private fun handleKey(key: KeyData) {
+        if (searchMode && handleSearchKey(key)) return
         val ic = currentInputConnection ?: return
         when (key.code) {
             SpecialCodes.BACKSPACE -> { deleteBackward(); lastChar = ' ' }

@@ -13,6 +13,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -28,7 +29,9 @@ class EmojiPanel(
     context: Context,
     private val onEmoji: (String) -> Unit,
     private val onBackspace: () -> Unit,
-    private val onBack: () -> Unit
+    private val onBack: () -> Unit,
+    private val onSearch: () -> Unit = {},
+    private val onExitSearch: () -> Unit = {}
 ) : LinearLayout(context) {
 
     private val dp = resources.displayMetrics.density
@@ -36,6 +39,9 @@ class EmojiPanel(
     private val grids = HashMap<Int, GridLayout>()
     private val tabViews = LinkedHashMap<Int, IconView>()
     private var currentIndex = 0
+    private var lang = "uz"
+    private var searching = false
+    private var query = ""
     private val handler = Handler(Looper.getMainLooper())
 
     private val night = KeyboardView.isNight(context)
@@ -48,21 +54,158 @@ class EmojiPanel(
         EmojiData.categories.map { supported(it.emojis.split(" ").filter { e -> e.isNotBlank() }) }
     }
 
+    private val browseBox = LinearLayout(context).apply { orientation = VERTICAL }
+    private val queryText = TextView(context)
+    private val closeIcon = IconView(context, IconView.Type.CLOSE, iconColor)
+    private val resultsRow = LinearLayout(context).apply { orientation = HORIZONTAL }
+    private val resultsScroll = HorizontalScrollView(context).apply {
+        isHorizontalScrollBarEnabled = false
+        overScrollMode = OVER_SCROLL_NEVER
+        addView(resultsRow, ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        visibility = GONE
+    }
+
     init {
         orientation = VERTICAL
         setBackgroundColor(KeyboardView.backgroundColorFor(context))
         scroll.isVerticalScrollBarEnabled = false
         scroll.overScrollMode = OVER_SCROLL_NEVER
-        addView(scroll, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
+        // Qidiruv maydoni (tepada): bossangiz qidiruv rejimi ochiladi
+        addView(buildSearchRow(), LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (46 * dp).toInt()))
+
+        browseBox.addView(scroll, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         // ingichka ajratuvchi chiziq
         val line = View(context).apply {
             setBackgroundColor(if (night) Color.parseColor("#33FFFFFF") else Color.parseColor("#1F000000"))
         }
-        addView(line, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1))
-        addView(buildBar(), LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * dp).toInt()))
+        browseBox.addView(line, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        browseBox.addView(buildBar(), LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * dp).toInt()))
+        addView(browseBox, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        // Qidiruv natijalari: bitta qatorli gorizontal ro'yxat
+        addView(resultsScroll, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (56 * dp).toInt()))
 
         select(if (getRecent().isNotEmpty()) RECENT_INDEX else 0)
+    }
+
+    // ===== Qidiruv =====
+    private fun buildSearchRow(): View {
+        val row = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = 12 * dp
+                setColor(if (night) Color.parseColor("#2C2C2E") else Color.WHITE)
+                setStroke((1 * dp).toInt().coerceAtLeast(1), if (night) Color.parseColor("#3A3A3C") else Color.parseColor("#D3D6DA"))
+            }
+            setPadding((6 * dp).toInt(), 0, (2 * dp).toInt(), 0)
+            isClickable = true
+            setOnClickListener { if (!searching) onSearch() }
+        }
+        row.addView(IconView(context, IconView.Type.SEARCH, iconColor), LayoutParams((30 * dp).toInt(), (30 * dp).toInt()))
+        queryText.apply {
+            textSize = 15f
+            maxLines = 1
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding((4 * dp).toInt(), 0, 0, 0)
+        }
+        row.addView(queryText, LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        closeIcon.apply {
+            isClickable = true
+            visibility = GONE
+            setOnClickListener { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); onExitSearch() }
+        }
+        row.addView(closeIcon, LayoutParams((38 * dp).toInt(), ViewGroup.LayoutParams.MATCH_PARENT))
+        updateQueryText()
+
+        return LinearLayout(context).apply {
+            setPadding((8 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+            addView(row, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+    }
+
+    private fun searchHint() = when (lang) {
+        "ru" -> "Поиск эмодзи"
+        "en" -> "Search emoji"
+        "kaa" -> "Emoji izlew"
+        else -> "Emoji qidiriş"
+    }
+
+    private fun noResults() = when (lang) {
+        "ru" -> "Ничего не найдено"
+        "en" -> "Nothing found"
+        "kaa" -> "Eshteńe tabılmadı"
+        else -> "Heç narsa topilmadi"
+    }
+
+    private fun updateQueryText() {
+        if (searching && query.isNotEmpty()) {
+            queryText.text = query + "\u2502"
+            queryText.setTextColor(iconColor)
+        } else {
+            queryText.text = searchHint()
+            queryText.setTextColor(if (night) Color.parseColor("#8E8E93") else Color.parseColor("#8A8A8E"))
+        }
+    }
+
+    fun setLang(l: String) { lang = l; updateQueryText(); if (searching) renderResults() }
+
+    /** Qidiruv rejimi boshlanadi (klaviatura pastda ko'rinib turadi, yozilgan harflar shu maydonga tushadi). */
+    fun beginSearch(l: String) {
+        lang = l
+        searching = true
+        query = ""
+        browseBox.visibility = GONE
+        resultsScroll.visibility = VISIBLE
+        closeIcon.visibility = VISIBLE
+        updateQueryText()
+        renderResults()
+    }
+
+    fun endSearch() {
+        searching = false
+        query = ""
+        browseBox.visibility = VISIBLE
+        resultsScroll.visibility = GONE
+        closeIcon.visibility = GONE
+        updateQueryText()
+    }
+
+    fun setQuery(q: String) {
+        query = q
+        updateQueryText()
+        renderResults()
+    }
+
+    private fun renderResults() {
+        resultsRow.removeAllViews()
+        resultsScroll.scrollTo(0, 0)
+        val list: List<String> = if (query.isBlank()) {
+            val r = getRecent()
+            if (r.isNotEmpty()) r else categories[0].take(40)
+        } else {
+            supported(EmojiSearch.search(query, EmojiData.categories.map { it.emojis })).take(80)
+        }
+        if (list.isEmpty()) {
+            resultsRow.addView(TextView(context).apply {
+                text = noResults()
+                textSize = 14f
+                gravity = Gravity.CENTER_VERTICAL
+                setTextColor(if (night) Color.parseColor("#8E8E93") else Color.parseColor("#8A8A8E"))
+                setPadding((16 * dp).toInt(), 0, 0, 0)
+            }, LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            return
+        }
+        list.forEach { e ->
+            val tv = TextView(context).apply {
+                text = e
+                textSize = 26f
+                gravity = Gravity.CENTER
+                setOnClickListener { selectEmoji(e) }
+            }
+            resultsRow.addView(tv, LayoutParams((48 * dp).toInt(), ViewGroup.LayoutParams.MATCH_PARENT))
+        }
     }
 
     // ===== Pastki panel =====

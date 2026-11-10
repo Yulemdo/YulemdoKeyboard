@@ -23,7 +23,7 @@ class IconView(
 
     enum class Type {
         SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK, FONT,
-        CLOCK, HAND, PAW, FOOD, BALL, CAR, BULB, HEART, FLAG, BACKSPACE
+        CLOCK, HAND, PAW, FOOD, BALL, CAR, BULB, HEART, FLAG, BACKSPACE, SEARCH
     }
 
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -190,6 +190,10 @@ class IconView(
                 canvas.drawPath(b, stroke)
                 canvas.drawLine(12.2f, 9.2f, 17.2f, 14.8f, stroke)
                 canvas.drawLine(17.2f, 9.2f, 12.2f, 14.8f, stroke)
+            }
+            Type.SEARCH -> {
+                canvas.drawCircle(10.5f, 10.5f, 6.5f, stroke)
+                canvas.drawLine(15.4f, 15.4f, 20.5f, 20.5f, stroke)
             }
             Type.CLOSE -> {
                 canvas.drawLine(6f, 6f, 18f, 18f, stroke)
