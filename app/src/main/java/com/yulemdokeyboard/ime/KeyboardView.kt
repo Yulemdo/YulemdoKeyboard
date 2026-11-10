@@ -563,9 +563,12 @@ class KeyboardView @JvmOverloads constructor(
         dismissHint()
         previewHandler.removeCallbacks(hintPreviewRunnable)
         previewHandler.removeCallbacks(langLongRunnable)
-        if (key?.code == SpecialCodes.LANG_SWITCH) previewHandler.postDelayed(langLongRunnable, 400L)
         previewKey = key
-        if (key == null || key.isSpecial || key.label.isEmpty()) { hidePreview(); return }
+        if (key == null || key.isSpecial || key.label.isEmpty()) {
+            hidePreview()   // diqqat: bu langLongRunnable ni ham o'chiradi, shuning uchun uni shundan KEYIN qo'yamiz
+            if (key?.code == SpecialCodes.LANG_SWITCH) previewHandler.postDelayed(langLongRunnable, 400L)
+            return
+        }
         val rect = keyRects[key] ?: return
         if (windowToken == null) return
         val label = if (shiftOn) key.label.uppercase() else key.label
