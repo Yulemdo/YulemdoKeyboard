@@ -55,6 +55,29 @@ object LayoutStorage {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("language", lang).apply()
     }
 
+    /** Klaviaturada yoqilgan tillar (globus bilan aylanadi). Hech narsa saqlanmagan bo'lsa - hammasi yoqiq. */
+    fun getEnabledLanguages(context: Context): List<String> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("enabled_langs", null)
+            ?: return Languages.order
+        val set = raw.split(",").toSet()
+        return Languages.order.filter { it in set }.ifEmpty { Languages.order }
+    }
+
+    /** false qaytarsa - kamida bitta til yoniq qolishi kerak, shuning uchun o'chirilmadi. */
+    fun setLanguageEnabled(context: Context, lang: String, enabled: Boolean): Boolean {
+        val cur = getEnabledLanguages(context).toMutableList()
+        if (enabled) {
+            if (lang !in cur) cur.add(lang)
+        } else {
+            if (lang in cur && cur.size <= 1) return false
+            cur.remove(lang)
+        }
+        val ordered = Languages.order.filter { it in cur }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("enabled_langs", ordered.joinToString(",")).apply()
+        return true
+    }
+
     /** Eski saqlangan layoutlarni yangi belgilarga (ö, ğ, ʼ, ikonkali tugmalar) o'tkazadi. */
     private fun migrateKey(k: KeyData) {
         when (k.code) {

@@ -13,6 +13,22 @@ object Languages {
 
     fun next(current: String): String = order[(order.indexOf(current) + 1).mod(order.size)]
 
+    /** Faqat yoqilgan tillar orasida aylanadi. */
+    fun next(current: String, enabled: List<String>): String {
+        val list = order.filter { it in enabled }.ifEmpty { listOf(UZ) }
+        val i = list.indexOf(current)
+        return if (i < 0) list[0] else list[(i + 1) % list.size]
+    }
+
+    /** Til ro'yxatida va sozlamalarda ko'rinadigan nom. */
+    fun nativeName(lang: String): String = when (lang) {
+        UZ -> "Özbekça"
+        KAA -> "Qaraqalpaqsha"
+        EN -> "English"
+        RU -> "Русский"
+        else -> lang
+    }
+
     /** Space tugmasida ko'rinadigan nom (yangi alifbo bo'yicha: Özbekça). */
     fun spaceLabel(lang: String): String = when (lang) {
         UZ -> "ÖZBEKÇA"
