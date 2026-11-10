@@ -8,7 +8,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.Gravity
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.yulemdokeyboard.MainActivity
+import com.yulemdokeyboard.editor.LayoutEditorActivity
 import com.yulemdokeyboard.model.KeyData
 import com.yulemdokeyboard.model.KeyboardLayout
 import com.yulemdokeyboard.model.Languages
@@ -24,7 +33,7 @@ class YulemdoInputMethodService : InputMethodService() {
 
     private enum class Page { LETTERS, SYM1, SYM2 }
 
-    private lateinit var root: FrameLayout
+    private lateinit var root: LinearLayout
     private lateinit var keyboardView: KeyboardView
     private lateinit var emojiPanel: EmojiPanel
 
@@ -53,21 +62,69 @@ class YulemdoInputMethodService : InputMethodService() {
             onBack = { hideEmoji() }
         )
 
-        root = FrameLayout(this)
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(KeyboardView.backgroundColorFor(this@YulemdoInputMethodService))
+        }
         root.addView(
+            buildToolbar(),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (44 * resources.displayMetrics.density).toInt())
+        )
+        val body = FrameLayout(this)
+        body.addView(
             keyboardView,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
-        root.addView(
+        body.addView(
             emojiPanel,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardView.desiredHeight(4))
         )
+        root.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         emojiPanel.visibility = View.GONE
 
         lang = LayoutStorage.getLanguage(this)
         applySpaceLabel()
         showPage(Page.LETTERS)
         return root
+    }
+
+    // ===== Klaviatura tepasidagi panel: emoji, klaviatura almashtirish, muharrir, sozlamalar =====
+    private fun buildToolbar(): View {
+        val night = KeyboardView.isNight(this)
+        val iconColor = if (night) Color.parseColor("#E8EAED") else Color.parseColor("#3C4043")
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(KeyboardView.backgroundColorFor(this@YulemdoInputMethodService))
+        }
+        fun btn(glyph: String, onClick: () -> Unit) {
+            val tv = TextView(this).apply {
+                text = glyph
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                typeface = Typeface.DEFAULT
+                setTextColor(iconColor)
+                isClickable = true
+                setOnClickListener {
+                    performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    onClick()
+                }
+            }
+            bar.addView(tv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        }
+        // \uFE0E - belgini rangli emoji emas, oddiy matn ko'rinishida chizadi
+        btn("\u263A\uFE0E") { if (emojiPanel.visibility == View.VISIBLE) hideEmoji() else showEmoji() }
+        btn("\u2328\uFE0E") {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+        }
+        btn("\u25A6\uFE0E") { openApp(LayoutEditorActivity::class.java) }
+        btn("\u2699\uFE0E") { openApp(MainActivity::class.java) }
+        return bar
+    }
+
+    private fun openApp(cls: Class<*>) {
+        val i = Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(i)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
