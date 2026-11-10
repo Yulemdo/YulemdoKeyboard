@@ -57,12 +57,12 @@ fun defaultUzbekLayout(): KeyboardLayout {
     keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 2, col = 10, width = 1.3f, isSpecial = true))
 
     keys.add(KeyData("", SpecialCodes.SYMBOLS, row = 3, col = 0, width = 1.3f, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.EMOJI, row = 3, col = 1, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 2, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = 3, width = 3.4f, isSpecial = true))
-    keys.add(KeyData(",", ",", row = 3, col = 7))
-    keys.add(KeyData(".", ".", row = 3, col = 8))
-    keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 9, width = 1.6f, isSpecial = true))
+    // Emoji tugmasi endi klaviatura tepasidagi panelda. Vergul space'ning chap tomonida.
+    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 1, isSpecial = true))
+    keys.add(KeyData(",", ",", row = 3, col = 2))
+    keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = 3, width = 4.4f, isSpecial = true))
+    keys.add(KeyData(".", ".", row = 3, col = 4))
+    keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 5, width = 1.6f, isSpecial = true))
 
     return KeyboardLayout(name = "Özbek (standart)", rows = 4, cols = 11, keys = keys)
 }
@@ -84,8 +84,8 @@ private fun symbolsPage(
     keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 2, col = r2.size + 1, width = 1.4f, isSpecial = true))
 
     keys.add(KeyData("ABC", SpecialCodes.LETTERS, row = 3, col = 0, width = 1.4f, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.EMOJI, row = 3, col = 1, isSpecial = true))
-    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 2, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 1, isSpecial = true))
+    keys.add(KeyData(",", ",", row = 3, col = 2))
     keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = 3, width = 6f, isSpecial = true))
     keys.add(KeyData(".", ".", row = 3, col = 4))
     keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 5, width = 1.4f, isSpecial = true))
