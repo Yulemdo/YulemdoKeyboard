@@ -21,7 +21,7 @@ class IconView(
     var filled: Boolean = false
 ) : View(context) {
 
-    enum class Type { SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK }
+    enum class Type { SMILE, KEYBOARD, CLIPBOARD, GEAR, PIN, CLOSE, TRASH, CHECK, FONT }
 
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -87,6 +87,13 @@ class IconView(
                 }
                 canvas.drawPath(p, stroke)
                 canvas.drawLine(12f, 14f, 12f, 21f, stroke)
+            }
+            Type.FONT -> {
+                val a = Path().apply { moveTo(2.5f, 19f); lineTo(8.5f, 5f); lineTo(14.5f, 19f) }
+                canvas.drawPath(a, stroke)
+                canvas.drawLine(4.8f, 14f, 12.2f, 14f, stroke)
+                canvas.drawCircle(18f, 15.8f, 2.9f, stroke)
+                canvas.drawLine(20.9f, 12.8f, 20.9f, 19f, stroke)
             }
             Type.CHECK -> {
                 canvas.drawCircle(12f, 12f, 10f, fill)

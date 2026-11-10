@@ -9,6 +9,12 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.widget.GridLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
+import android.widget.TextView
 import android.graphics.Color
 import android.view.Gravity
 import android.widget.FrameLayout
@@ -33,6 +39,10 @@ class YulemdoInputMethodService : InputMethodService() {
     private lateinit var keyboardView: KeyboardView
     private lateinit var emojiPanel: EmojiPanel
     private lateinit var clipPanel: ClipboardPanel
+    private var fontStyle: FontStyles.Style? = null
+    private lateinit var fontIcon: IconView
+    private var fontMenu: PopupWindow? = null
+    private var lastLen = 1
     private var clipManager: android.content.ClipboardManager? = null
     private val clipListener = android.content.ClipboardManager.OnPrimaryClipChangedListener { captureClip() }
 
@@ -120,6 +130,7 @@ class YulemdoInputMethodService : InputMethodService() {
         lang = LayoutStorage.getLanguage(this)
         applySpaceLabel()
         showPage(Page.LETTERS)
+        loadFont()
         return root
     }
 
@@ -143,12 +154,136 @@ class YulemdoInputMethodService : InputMethodService() {
             bar.addView(v, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         }
         btn(IconView.Type.SMILE) { if (emojiPanel.visibility == View.VISIBLE) hideEmoji() else showEmoji() }
-        btn(IconView.Type.KEYBOARD) {
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+        // Shrift tugmasi: bosish - yoqish/o'chirish, bosib turish - shrift tanlash
+        fontIcon = IconView(this, IconView.Type.FONT, iconColor).apply {
+            isClickable = true
+            setOnClickListener {
+                performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                toggleFont()
+            }
+            setOnLongClickListener {
+                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                showFontMenu(this)
+                true
+            }
         }
+        bar.addView(fontIcon, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        refreshFontIcon()
         btn(IconView.Type.CLIPBOARD) { if (clipPanel.visibility == View.VISIBLE) hideEmoji() else showClipboard() }
         btn(IconView.Type.GEAR) { openApp(MainActivity::class.java) }
         return bar
+    }
+
+    // ===== Shriftlar =====
+    private fun loadFont() {
+        val st = FontStyles.byId(FontStyles.getActive(this), lang)
+        if (st == null) FontStyles.setActive(this, "")   // bu alifboda mavjud bo'lmasa, o'chiriladi
+        fontStyle = st
+        if (::fontIcon.isInitialized) refreshFontIcon()
+    }
+
+    private fun refreshFontIcon() {
+        val night = KeyboardView.isNight(this)
+        val normal = if (night) Color.parseColor("#F2F2F2") else Color.parseColor("#111111")
+        fontIcon.color = if (fontStyle != null) Color.parseColor("#FFC107") else normal
+        fontIcon.invalidate()
+    }
+
+    private fun setFont(st: FontStyles.Style?) {
+        fontStyle = st
+        FontStyles.setActive(this, st?.id ?: "")
+        lastLen = 1
+        refreshFontIcon()
+    }
+
+    private fun toggleFont() {
+        if (fontStyle != null) { setFont(null); return }
+        val last = FontStyles.byId(FontStyles.getLast(this), lang)
+        if (last == null) showFontMenu(fontIcon) else setFont(last)
+    }
+
+    private fun normalLabel() = when (lang) {
+        Languages.RU -> "Обычный"
+        Languages.EN -> "Normal"
+        Languages.KAA -> "Ápiwayí"
+        else -> "Oddiy"
+    }
+
+    private fun showFontMenu(anchor: View) {
+        try { fontMenu?.dismiss() } catch (_: Exception) { }
+        val d = resources.displayMetrics.density
+        val night = KeyboardView.isNight(this)
+        val fg = if (night) Color.parseColor("#F2F2F2") else Color.parseColor("#111111")
+        val border = if (night) Color.parseColor("#44FFFFFF") else Color.parseColor("#33000000")
+        val selBg = if (night) Color.parseColor("#454548") else Color.parseColor("#E4E4E4")
+        val screenW = resources.displayMetrics.widthPixels
+        val menuW = minOf(screenW - (16 * d).toInt(), (340 * d).toInt())
+        val pad = (6 * d).toInt()
+        val margin = (3 * d).toInt()
+        val cellW = (menuW - pad * 2) / 2 - margin * 2
+
+        val sample = if (lang == Languages.RU) "Клавиатура" else "Yulemdo"
+        val paint = android.graphics.Paint()
+        val styles = FontStyles.forLang(lang).filter { st ->
+            // Qurilma shu belgilarni chiza olmasa (kvadratcha chiqsa), ro'yxatdan chiqarib tashlaymiz
+            st.mark != null || android.os.Build.VERSION.SDK_INT < 23 || paint.hasGlyph(FontStyles.apply(st, "A"))
+        }
+
+        val grid = GridLayout(this).apply { columnCount = 2 }
+        fun cell(label: String, active: Boolean, onClick: () -> Unit) {
+            val tv = TextView(this).apply {
+                text = label
+                gravity = Gravity.CENTER
+                textSize = 16f
+                maxLines = 1
+                setTextColor(fg)
+                setPadding((6 * d).toInt(), (11 * d).toInt(), (6 * d).toInt(), (11 * d).toInt())
+                background = GradientDrawable().apply {
+                    cornerRadius = 10 * d
+                    setColor(if (active) selBg else Color.TRANSPARENT)
+                    setStroke(((if (active) 2f else 1f) * d).toInt().coerceAtLeast(1), if (active) fg else border)
+                }
+                setOnClickListener { try { fontMenu?.dismiss() } catch (_: Exception) { }; onClick() }
+            }
+            grid.addView(tv, GridLayout.LayoutParams().apply {
+                width = cellW
+                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                setMargins(margin, margin, margin, margin)
+            })
+        }
+        cell(normalLabel(), fontStyle == null) { setFont(null) }
+        styles.forEach { st -> cell(FontStyles.apply(st, sample), fontStyle?.id == st.id) { setFont(st) } }
+
+        val box = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            setPadding(pad, pad, pad, pad)
+            elevation = 8 * d
+            background = GradientDrawable().apply {
+                cornerRadius = 16 * d
+                setColor(if (night) Color.parseColor("#2C2C2E") else Color.WHITE)
+                setStroke((1 * d).toInt(), border)
+            }
+            addView(grid)
+        }
+        grid.measure(
+            View.MeasureSpec.makeMeasureSpec(menuW - pad * 2, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.UNSPECIFIED
+        )
+        val h = minOf(grid.measuredHeight + pad * 2, (260 * d).toInt())
+        val loc = IntArray(2)
+        anchor.getLocationOnScreen(loc)
+        val x = ((screenW - menuW) / 2)
+        val y = (loc[1] - h - 4 * d).toInt().coerceAtLeast(0)
+        try {
+            fontMenu = PopupWindow(box, menuW, h, false).apply {
+                isOutsideTouchable = true
+                isTouchable = true
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+                animationStyle = 0
+                showAtLocation(root, Gravity.NO_GRAVITY, x, y)
+            }
+        } catch (_: Exception) { fontMenu = null }
     }
 
     private fun openApp(cls: Class<*>) {
@@ -162,6 +297,7 @@ class YulemdoInputMethodService : InputMethodService() {
         lang = LayoutStorage.getLanguage(this)
         applySpaceLabel()
         showPage(Page.LETTERS)
+        loadFont()
     }
 
     // ===== Sahifalar / tillar =====
@@ -193,6 +329,7 @@ class YulemdoInputMethodService : InputMethodService() {
     private fun cycleLanguage() {
         lang = Languages.next(lang)
         LayoutStorage.setLanguage(this, lang)
+        loadFont()
         applySpaceLabel()
         if (page == Page.LETTERS) showPage(Page.LETTERS)
     }
@@ -230,11 +367,29 @@ class YulemdoInputMethodService : InputMethodService() {
         val selected = ic.getSelectedText(0)
         if (!selected.isNullOrEmpty()) {
             ic.commitText("", 1)
+        } else if (deleteWithMarks(ic)) {
+            // shriftli harf (asosiy belgi + birlashtiruvchi belgilar) bittada o'chirildi
         } else if (Build.VERSION.SDK_INT >= 24) {
             ic.deleteSurroundingTextInCodePoints(1, 0)
         } else {
             ic.deleteSurroundingText(1, 0)
         }
+    }
+
+    /** Kursor oldida birlashtiruvchi belgilar (ö = o + ̈, tagiga chizilgan harf va h.k.) bo'lsa, harfni belgilari bilan birga o'chiradi. */
+    private fun deleteWithMarks(ic: android.view.inputmethod.InputConnection): Boolean {
+        val before = ic.getTextBeforeCursor(10, 0) ?: return false
+        var i = before.length
+        while (i > 0) {
+            val cp = Character.codePointBefore(before, i)
+            val t = Character.getType(cp)
+            if (t == Character.NON_SPACING_MARK.toInt() || t == Character.COMBINING_SPACING_MARK.toInt() ||
+                t == Character.ENCLOSING_MARK.toInt()) i -= Character.charCount(cp) else break
+        }
+        if (i <= 0 || i == before.length) return false
+        i -= Character.charCount(Character.codePointBefore(before, i))
+        ic.deleteSurroundingText(before.length - i, 0)
+        return true
     }
 
     // sh->ş, ch->ç, oʻ/o'->ö, gʻ/g'->ğ. Faqat uz tilida, harflar ketma-ket yozilganda ishlaydi.
@@ -252,14 +407,19 @@ class YulemdoInputMethodService : InputMethodService() {
             val nextChar = text[0]
             val match = digraphs.find { it.first == lastChar && it.second == nextChar }
             if (match != null) {
-                ic.deleteSurroundingText(1, 0)
-                ic.commitText(match.result.toString(), 1)
+                // Oldingi harf shriftlangan bo'lsa, u bir necha belgidan iborat bo'lishi mumkin
+                ic.deleteSurroundingText(lastLen, 0)
+                val out = FontStyles.apply(fontStyle, match.result.toString())
+                ic.commitText(out, 1)
                 lastChar = match.result
+                lastLen = out.length
                 return
             }
         }
-        ic.commitText(text, 1)
+        val out = FontStyles.apply(fontStyle, text)
+        ic.commitText(out, 1)
         lastChar = if (text.length == 1) text[0] else ' '
+        lastLen = out.length
     }
 
     private fun handleKey(key: KeyData) {
