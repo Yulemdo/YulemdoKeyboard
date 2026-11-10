@@ -110,7 +110,7 @@ private fun clipStrings(lang: String) = when (lang) {
         { n -> "$n belgilendi" }
     )
     else -> ClipStrings(
-        "Oxirgi nusxalanganlar", "Pinlangan", "Hozircha hiç narsa yöq",
+        "Oxirgi nusxalanganlar", "Pinlangan", "Hozircha heç narsa yöq",
         "Töliq köriş", "Qisqartiriş", "Pinlar limiti — 25 ta. Avval ortiqçasini öçiring",
         "Öçiriş", "Belgilaş", "Pinlaş", "Pindan çiqariş", "Bekor qiliş",
         { n -> "$n ta belgilandi" }
@@ -156,10 +156,14 @@ class ClipboardPanel(
         setBackgroundColor(KeyboardView.backgroundColorFor(context))
 
         val h1 = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
-        h1.addView(pill("ABC").apply {
-            setPadding(0, 0, 0, 0)
+        // Klaviaturaga qaytish: "ABC" yozuvi o'rniga klaviatura ikonkasi
+        val backBtn = FrameLayout(context).apply {
+            background = pillBackground()
+            isClickable = true
+            addView(IconView(context, IconView.Type.KEYBOARD, fg), FrameLayout.LayoutParams(-1, -1))
             setOnClickListener { if (selecting) exitSelection() else onBack() }
-        }, LayoutParams((50 * dp).toInt(), (30 * dp).toInt()).apply { marginStart = (8 * dp).toInt() })
+        }
+        h1.addView(backBtn, LayoutParams((52 * dp).toInt(), (30 * dp).toInt()).apply { marginStart = (8 * dp).toInt() })
         recentTitle.apply {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             setTextColor(sub)
@@ -186,6 +190,7 @@ class ClipboardPanel(
             setPadding((12 * dp).toInt(), 0, 0, 0)
         }
         addView(pinnedTitle, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (26 * dp).toInt()))
+        pinnedHolder.isFillViewport = true
         pinnedHolder.isHorizontalScrollBarEnabled = false
         pinnedHolder.overScrollMode = OVER_SCROLL_NEVER
         addView(pinnedHolder, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tile + 2 * gap + (4 * dp).toInt()))
@@ -224,11 +229,13 @@ class ClipboardPanel(
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(fg)
         setPadding((12 * dp).toInt(), 0, (12 * dp).toInt(), 0)
-        background = GradientDrawable().apply {
-            cornerRadius = 15 * dp
-            setColor(tileBg)
-            setStroke((1 * dp).toInt(), tileBorder)
-        }
+        background = pillBackground()
+    }
+
+    private fun pillBackground() = GradientDrawable().apply {
+        cornerRadius = 15 * dp
+        setColor(tileBg)
+        setStroke((1 * dp).toInt(), tileBorder)
     }
 
     private fun pill(label: String) = stylePill(TextView(context)).apply { text = label }
@@ -273,7 +280,7 @@ class ClipboardPanel(
 
         pinnedHolder.removeAllViews()
         if (pinned.isEmpty()) pinnedHolder.addView(emptyText(s.empty).apply {
-            layoutParams = ViewGroup.LayoutParams(resources.displayMetrics.widthPixels, tile)
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tile)
         })
         else pinnedHolder.addView(rowInner(pinned, true, s))
     }
