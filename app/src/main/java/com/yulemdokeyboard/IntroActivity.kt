@@ -101,6 +101,7 @@ class IntroActivity : AppCompatActivity() {
                 AppStrings.setLang(this@IntroActivity, appLang)
                 // Klaviaturaning boshlang'ich tili ham shu bo'ladi
                 LayoutStorage.setLanguage(this@IntroActivity, keyboardLang)
+                LayoutStorage.setLanguageEnabled(this@IntroActivity, keyboardLang, true)
                 page = 1
                 render()
             }
