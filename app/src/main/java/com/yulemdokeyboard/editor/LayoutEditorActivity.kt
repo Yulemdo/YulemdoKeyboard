@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -23,6 +25,7 @@ import com.yulemdokeyboard.model.KeyboardLayout
 import com.yulemdokeyboard.model.Languages
 import com.yulemdokeyboard.model.LayoutStorage
 import com.yulemdokeyboard.model.SpecialCodes
+import com.yulemdokeyboard.model.blankLayout
 
 /**
  * Klaviatura muharriri. Yuqoridagi til tugmalari orqali istalgan tilning (uz, kaa, en, ru)
@@ -38,6 +41,10 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     private var curLang = Languages.UZ
     private var baseSig = ""
+    private var symDeleteMode = false
+    private lateinit var sizeBar: LinearLayout
+    private lateinit var rowsLabel: TextView
+    private lateinit var colsLabel: TextView
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -87,6 +94,7 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -105,7 +113,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         // Qisqa yo'riqnoma
         root.addView(TextView(this).apply {
             text = tr(
-                "Tugmani bossangiz o'çadi · bosib turib suring · palitradagi tugmani bossangiz bo'ş katakka qöşiladi",
+                "Tugmani bossangiz o'çadi · bosib turib suring · palitradagi tugmani bossangiz bo'ş katakka qöşiladi · öz tilingiz uçun «Yangi til»",
                 "Нажатие на клавишу удаляет её · удерживайте и перетащите · нажатие на палитру добавляет в свободную клетку",
                 "Tap a key to remove it · hold and drag to move · tap a palette key to add it to the first free cell",
                 "Túymeni bassańız óshedi · uslap sürkeń · palitradaǵı túymeni bassańız bos katekke qosíladí"
@@ -114,6 +122,27 @@ class LayoutEditorActivity : AppCompatActivity() {
             textSize = 11f
             setPadding(dp(2), dp(8), dp(2), dp(6))
         })
+
+        // Qator / ustun soni
+        sizeBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        rowsLabel = TextView(this)
+        colsLabel = TextView(this)
+        fun stepBtn(t: String, onClick: () -> Unit) = TextView(this).apply {
+            text = t; textSize = 16f; gravity = Gravity.CENTER
+            setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            background = Ui.glass(this@LayoutEditorActivity, 8)
+            setOnClickListener { onClick() }
+        }
+        fun group(label: TextView, minus: () -> Unit, plus: () -> Unit) {
+            label.setTextColor(Ui.TEXT_SECONDARY); label.textSize = 12f
+            label.setPadding(0, 0, dp(6), 0)
+            sizeBar.addView(label)
+            sizeBar.addView(stepBtn("−", minus), LinearLayout.LayoutParams(dp(30), dp(28)).apply { marginEnd = dp(4) })
+            sizeBar.addView(stepBtn("+", plus), LinearLayout.LayoutParams(dp(30), dp(28)).apply { marginEnd = dp(16) })
+        }
+        group(rowsLabel, { resize(-1, 0) }, { resize(1, 0) })
+        group(colsLabel, { resize(0, -1) }, { resize(0, 1) })
+        root.addView(sizeBar, LinearLayout.LayoutParams(-1, dp(32)))
 
         // Ixcham to'r
         gridView = EditorGridView(this).apply { background = Ui.glass(this@LayoutEditorActivity, 12) }
@@ -155,6 +184,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             gridView.setGrid(def.rows, def.cols)
             gridView.replaceKeys(def.keys)
             updateUndoRedoState()
+            updateSizeLabels()
             toast(tr("Standart joylaşuv tiklandi (saqlash uçun «Saqlaş»)",
                 "Стандартная раскладка восстановлена (нажмите «Сохранить»)",
                 "Default layout restored (tap Save to keep it)",
@@ -170,14 +200,93 @@ class LayoutEditorActivity : AppCompatActivity() {
     // ===== Til almashtirish =====
     private fun selectLang(l: String) {
         if (l == curLang) return
-        if (!isDirty()) { loadLanguage(l); return }
+        confirmLeave { loadLanguage(l) }
+    }
+
+    /** Saqlanmagan o'zgarish bo'lsa so'raydi, keyin [then] ni bajaradi. */
+    private fun confirmLeave(then: () -> Unit) {
+        if (!isDirty()) { then(); return }
         AlertDialog.Builder(this)
             .setTitle(tr("Saqlanmagan o'zgarişlar", "Несохранённые изменения", "Unsaved changes", "Saqlanbaǵan ózgerisler"))
             .setMessage(Languages.nativeName(curLang))
-            .setPositiveButton(tr("Saqlaş", "Сохранить", "Save", "Saqlaw")) { _, _ -> if (save()) loadLanguage(l) }
-            .setNegativeButton(tr("Saqlamasdan", "Не сохранять", "Discard", "Saqlamastan")) { _, _ -> loadLanguage(l) }
+            .setPositiveButton(tr("Saqlaş", "Сохранить", "Save", "Saqlaw")) { _, _ -> if (save()) then() }
+            .setNegativeButton(tr("Saqlamasdan", "Не сохранять", "Discard", "Saqlamastan")) { _, _ -> then() }
             .setNeutralButton(tr("Bekor", "Отмена", "Cancel", "Biykar")) { d, _ -> d.dismiss() }
             .show()
+    }
+
+    // ===== O'z til yaratish / o'chirish =====
+    private fun promptNewLanguage() {
+        confirmLeave {
+            val input = EditText(this).apply {
+                setSingleLine()
+                hint = tr("Til nomi (masalan: Mening tilim)", "Название языка", "Language name", "Til atı")
+                setPadding(dp(20), dp(14), dp(20), dp(14))
+            }
+            AlertDialog.Builder(this)
+                .setTitle(tr("Yangi til", "Новый язык", "New language", "Taza til"))
+                .setView(input)
+                .setPositiveButton("OK") { _, _ ->
+                    val name = input.text.toString().trim()
+                    if (name.isEmpty()) toast(tr("Nom yozing", "Введите название", "Enter a name", "Atın jazıń"))
+                    else chooseTemplate(name)
+                }
+                .setNegativeButton(tr("Bekor", "Отмена", "Cancel", "Biykar"), null)
+                .show()
+        }
+    }
+
+    private fun chooseTemplate(name: String) {
+        val labels = arrayOf(
+            tr("Bo'ş (0 dan boşlaş)", "Пустая (с нуля)", "Blank (from scratch)", "Bos (0 den)")
+        ) + Languages.builtin.map { tr("Nusxa: ", "Копия: ", "Copy of: ", "Nusqa: ") + Languages.nativeName(it) }
+        AlertDialog.Builder(this)
+            .setTitle(tr("Boşlang'ich joylaşuv", "Начальная раскладка", "Starting layout", "Baslanǵısh jaylasıw"))
+            .setItems(labels) { _, i ->
+                val layout = if (i == 0) blankLayout(name) else {
+                    val src = LayoutStorage.getLayoutFor(this, Languages.builtin[i - 1])
+                    KeyboardLayout(name, src.rows, src.cols, src.keys.map { it.copy() }.toMutableList())
+                }
+                val id = LayoutStorage.addCustomLanguage(this, name, layout)
+                loadLanguage(id)
+            }
+            .show()
+    }
+
+    private fun confirmDeleteLanguage(id: String) {
+        AlertDialog.Builder(this)
+            .setTitle(Languages.nativeName(id))
+            .setMessage(tr("Bu til va uning joylaşuvi o'çiriladi.", "Этот язык и его раскладка будут удалены.",
+                "This language and its layout will be deleted.", "Bul til hám onıń jaylasıwı óshiriledi."))
+            .setPositiveButton(tr("O'çirish", "Удалить", "Delete", "Óshiriw")) { _, _ ->
+                val wasCurrent = id == curLang
+                LayoutStorage.deleteCustomLanguage(this, id)
+                if (wasCurrent) loadLanguage(Languages.UZ) else renderLangBar()
+            }
+            .setNegativeButton(tr("Bekor", "Отмена", "Cancel", "Biykar"), null)
+            .show()
+    }
+
+    // ===== Qator / ustun =====
+    private fun resize(dr: Int, dc: Int) {
+        val keys = gridView.exportKeys()
+        val nr = gridView.rows + dr
+        val nc = gridView.cols + dc
+        if (nr < 2 || nr > 6 || nc < 4 || nc > 14) return
+        if (dr < 0 && keys.any { it.row >= nr } || dc < 0 && keys.any { it.col >= nc }) {
+            toast(tr("Avval oxirgi qator/ustundagi tugmalarni olib tashlang",
+                "Сначала уберите клавиши из последней строки/столбца",
+                "Remove the keys in the last row/column first",
+                "Aldın sońǵı qatar/ustındaǵı túymelerdi alıp taslań"))
+            return
+        }
+        gridView.setGrid(nr, nc)
+        updateSizeLabels()
+    }
+
+    private fun updateSizeLabels() {
+        rowsLabel.text = tr("Qator ", "Строк ", "Rows ", "Qatar ") + gridView.rows
+        colsLabel.text = tr("Ustun ", "Столбцов ", "Cols ", "Ustın ") + gridView.cols
     }
 
     private fun loadLanguage(lang: String) {
@@ -185,7 +294,8 @@ class LayoutEditorActivity : AppCompatActivity() {
         val layout = LayoutStorage.getLayoutFor(this, lang)
         gridView.setGrid(layout.rows, layout.cols)
         gridView.loadKeys(layout.keys)
-        baseSig = signature(gridView.exportKeys())
+        baseSig = fullSig()
+        updateSizeLabels()
         renderLangBar()
         renderPalette()
         updateUndoRedoState()
@@ -195,7 +305,9 @@ class LayoutEditorActivity : AppCompatActivity() {
         keys.sortedWith(compareBy({ it.row }, { it.col }))
             .joinToString(";") { "${it.row},${it.col},${it.code},${it.width}" }
 
-    private fun isDirty() = signature(gridView.exportKeys()) != baseSig
+    private fun fullSig() = "${gridView.rows}x${gridView.cols}|" + signature(gridView.exportKeys())
+
+    private fun isDirty() = fullSig() != baseSig
 
     private fun save(): Boolean {
         val keys = gridView.exportKeys()
@@ -213,7 +325,7 @@ class LayoutEditorActivity : AppCompatActivity() {
                 KeyboardLayout(Languages.nativeName(curLang), gridView.rows, gridView.cols, keys.toMutableList())
             )
         }
-        baseSig = signature(keys)
+        baseSig = fullSig()
         renderLangBar()
         toast(tr("Saqlandi! Endi klaviaturada şu joylaşuv işlatiladi.", "Сохранено! Раскладка применена.",
             "Saved! The keyboard now uses this layout.", "Saqlandı! Endi klaviaturada usı jaylasıw isleydi."))
@@ -235,11 +347,21 @@ class LayoutEditorActivity : AppCompatActivity() {
                 typeface = if (sel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                 background = if (sel) Ui.fire(this@LayoutEditorActivity, 16) else Ui.glass(this@LayoutEditorActivity, 16)
                 setOnClickListener { selectLang(l) }
+                if (!Languages.isBuiltin(l)) setOnLongClickListener { confirmDeleteLanguage(l); true }
             }
             langBar.addView(tv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, -1).apply {
                 marginEnd = dp(6)
             })
         }
+        langBar.addView(TextView(this).apply {
+            text = "＋ " + tr("Yangi til", "Новый язык", "New language", "Taza til")
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(dp(14), 0, dp(14), 0)
+            setTextColor(Color.parseColor("#FFC107"))
+            background = Ui.glass(this@LayoutEditorActivity, 16)
+            setOnClickListener { promptNewLanguage() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, -1))
     }
 
     private fun renderPalette() {
@@ -249,14 +371,11 @@ class LayoutEditorActivity : AppCompatActivity() {
         val avail = resources.displayMetrics.widthPixels - dp(20)
         val colCount = (avail / (chip + 2 * m)).coerceAtLeast(4)
 
-        sectionsFor(curLang).forEach { (title, codes) ->
-            palette.addView(TextView(this).apply {
-                text = title
-                setTextColor(Color.parseColor("#B3FFFFFF"))
-                textSize = 11f
-                typeface = Typeface.DEFAULT_BOLD
-                setPadding(dp(3), dp(8), dp(3), dp(2))
-            })
+        renderMySymbols(chip, m, colCount)
+
+        val secs = if (Languages.isBuiltin(curLang)) sectionsFor(curLang) else sectionsForCustom()
+        secs.forEach { (title, codes) ->
+            palette.addView(sectionTitle(title))
             val grid = GridLayout(this).apply { columnCount = colCount }
             codes.forEach { code ->
                 val name = editorName(keyFromCode(code))
@@ -288,6 +407,118 @@ class LayoutEditorActivity : AppCompatActivity() {
             }
             palette.addView(grid)
         }
+    }
+
+    private fun sectionTitle(t: String) = TextView(this).apply {
+        text = t
+        setTextColor(Color.parseColor("#B3FFFFFF"))
+        textSize = 11f
+        typeface = Typeface.DEFAULT_BOLD
+        setPadding(dp(3), dp(8), dp(3), dp(2))
+    }
+
+    /** O'z til uchun: lotin + kirill + maxsus tugmalar + raqam/belgilar (hammasi tanlab olinadi). */
+    private fun sectionsForCustom(): List<Pair<String, List<String>>> = listOf(
+        tr("Lotin", "Латиница", "Latin", "Latın") to latin,
+        tr("Kirill", "Кириллица", "Cyrillic", "Kirill") to cyrillic,
+        tr("Tugmalar", "Клавиши", "Keys", "Túymeler") to specials,
+        tr("Raqamlar", "Цифры", "Digits", "Sanlar") to digits,
+        tr("Belgilar", "Знаки", "Symbols", "Belgiler") to punct
+    )
+
+    /** Belgilarni "bo'sh joy bilan ajratilgan" bo'lsa shu bo'yicha, aks holda harf-harf ajratadi. */
+    private fun parseSymbols(s: String): List<String> {
+        val t = s.trim()
+        if (t.isEmpty()) return emptyList()
+        if (t.any { it.isWhitespace() }) return t.split(Regex("\\s+")).filter { it.isNotEmpty() && it.length <= 12 }
+        val bi = java.text.BreakIterator.getCharacterInstance()
+        bi.setText(t)
+        val out = mutableListOf<String>()
+        var st = bi.first()
+        var en = bi.next()
+        while (en != java.text.BreakIterator.DONE) { out.add(t.substring(st, en)); st = en; en = bi.next() }
+        return out
+    }
+
+    /** "Mening belgilarim": paste qilib o'z belgilarini qo'shish (barcha tillar uchun umumiy). */
+    private fun renderMySymbols(chip: Int, m: Int, colCount: Int) {
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        head.addView(sectionTitle(tr("Mening belgilarim", "Мои символы", "My symbols", "Meniń belgilerim")),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val mine = LayoutStorage.getMySymbols(this)
+        if (mine.isNotEmpty()) {
+            head.addView(TextView(this).apply {
+                text = (if (symDeleteMode) "✓ " else "✕ ") + tr("O'çirish", "Удаление", "Delete mode", "Óshiriw")
+                textSize = 11f
+                setTextColor(if (symDeleteMode) Color.WHITE else Ui.TEXT_SECONDARY)
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                background = if (symDeleteMode) Ui.fire(this@LayoutEditorActivity, 10) else Ui.glass(this@LayoutEditorActivity, 10)
+                setOnClickListener { symDeleteMode = !symDeleteMode; renderPalette() }
+            })
+        }
+        palette.addView(head)
+
+        // paste maydoni
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val input = EditText(this).apply {
+            hint = tr("Belgilarni shu yerga paste qiling", "Вставьте символы сюда", "Paste your symbols here", "Belgilerdi usı jerge paste etiń")
+            setHintTextColor(Color.parseColor("#66FFFFFF"))
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            maxLines = 2
+            background = Ui.glass(this@LayoutEditorActivity, 10)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+        }
+        row.addView(input, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(TextView(this).apply {
+            text = tr("Qöşiş", "Добавить", "Add", "Qosıw")
+            textSize = 13f
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            background = Ui.fire(this@LayoutEditorActivity, 10)
+            setOnClickListener {
+                val list = parseSymbols(input.text.toString())
+                if (list.isEmpty()) {
+                    toast(tr("Avval belgilarni paste qiling", "Сначала вставьте символы", "Paste some symbols first", "Aldın belgilerdi paste etiń"))
+                } else {
+                    LayoutStorage.addMySymbols(this@LayoutEditorActivity, list)
+                    symDeleteMode = false
+                    renderPalette()
+                }
+            }
+        }, LinearLayout.LayoutParams(dp(76), dp(40)).apply { marginStart = dp(6) })
+        palette.addView(row, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        if (mine.isEmpty()) return
+        val grid = GridLayout(this).apply { columnCount = colCount }
+        mine.forEach { sym ->
+            val tv = TextView(this).apply {
+                text = sym
+                setTextColor(Color.WHITE)
+                background = Ui.glass(this@LayoutEditorActivity, 10)
+                gravity = Gravity.CENTER
+                maxLines = 1
+                includeFontPadding = false
+                textSize = if (sym.length > 2) 10f else 15f
+                alpha = if (symDeleteMode) 0.6f else 1f
+                setOnClickListener {
+                    if (symDeleteMode) {
+                        LayoutStorage.removeMySymbol(this@LayoutEditorActivity, sym)
+                        renderPalette()
+                    } else {
+                        if (!gridView.addKey(keyFromCode(sym))) toast(tr("To'r to'la", "Сетка заполнена", "Grid is full", "Tor tolǵan"))
+                        updateUndoRedoState()
+                    }
+                }
+                setOnLongClickListener { v ->
+                    v.startDragAndDrop(ClipData.newPlainText("key", sym), View.DragShadowBuilder(v), null, 0)
+                    true
+                }
+            }
+            grid.addView(tv, GridLayout.LayoutParams().apply { width = chip; height = chip; setMargins(m, m, m, m) })
+        }
+        palette.addView(grid)
     }
 
     private fun updateUndoRedoState() {
