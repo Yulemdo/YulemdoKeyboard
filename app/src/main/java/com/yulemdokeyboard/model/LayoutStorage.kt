@@ -5,29 +5,64 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * KeyboardLayout obyektini JSON ko'rinishida SharedPreferences ichida saqlaydi/o'qiydi.
- * Shunday qilib foydalanuvchi ilova ichida drag-drop bilan tuzgan custom klaviaturasi
- * ilova qayta ochilganda ham, haqiqiy IME service ichida ham ishlatiladi.
+ * Har bir til (uz, kaa, en, ru) uchun alohida custom layout saqlanadi.
+ * Custom layout yo'q bo'lsa - tilning standart layouti ishlatiladi.
+ * (O'zbek tili eski kalit bilan saqlanadi, shuning uchun avvalgi saqlangan layout yo'qolmaydi.)
  */
 object LayoutStorage {
     private const val PREFS = "uz_keyboard_prefs"
     private const val KEY_CUSTOM_LAYOUT = "custom_layout_json"
-    private const val KEY_ACTIVE_LAYOUT = "active_layout" // "default" yoki "custom"
+    private const val KEY_ACTIVE_LAYOUT = "active_layout" // faqat uz uchun: "default" yoki "custom"
 
-    fun saveCustomLayout(context: Context, layout: KeyboardLayout) {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_CUSTOM_LAYOUT, toJson(layout).toString()).apply()
+    // ===== Tilga bog'liq layoutlar =====
+    fun defaultLayoutFor(lang: String): KeyboardLayout = when (lang) {
+        Languages.KAA -> karakalpakLayout()
+        Languages.EN -> englishLayout()
+        Languages.RU -> russianLayout()
+        else -> defaultUzbekLayout()
     }
 
-    fun loadCustomLayout(context: Context): KeyboardLayout? {
+    private fun customKey(lang: String) =
+        if (lang == Languages.UZ) KEY_CUSTOM_LAYOUT else "${KEY_CUSTOM_LAYOUT}_$lang"
+
+    fun saveCustomLayout(context: Context, lang: String, layout: KeyboardLayout) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_CUSTOM_LAYOUT, null) ?: return null
+        prefs.edit().putString(customKey(lang), toJson(layout).toString()).apply()
+        if (lang == Languages.UZ) setActiveLayout(context, "custom")
+    }
+
+    fun loadCustomLayout(context: Context, lang: String): KeyboardLayout? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val raw = prefs.getString(customKey(lang), null) ?: return null
         return try {
-            fromJson(JSONObject(raw))
+            fromJson(JSONObject(raw), lang)
         } catch (e: Exception) {
             null
         }
     }
+
+    /** Custom layoutni o'chiradi - til yana standart layoutga qaytadi. */
+    fun clearCustomLayout(context: Context, lang: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(customKey(lang)).apply()
+        if (lang == Languages.UZ) setActiveLayout(context, "default")
+    }
+
+    fun hasCustomLayout(context: Context, lang: String): Boolean {
+        if (lang == Languages.UZ && getActiveLayout(context) != "custom") return false
+        return loadCustomLayout(context, lang) != null
+    }
+
+    /** IME shu funksiyani chaqiradi: tilning joriy layouti (custom bo'lsa custom, aks holda standart). */
+    fun getLayoutFor(context: Context, lang: String): KeyboardLayout {
+        val custom = if (hasCustomLayout(context, lang)) loadCustomLayout(context, lang) else null
+        return custom ?: defaultLayoutFor(lang)
+    }
+
+    // ===== Eski API (moslik uchun, o'zbek tili) =====
+    fun saveCustomLayout(context: Context, layout: KeyboardLayout) =
+        saveCustomLayout(context, Languages.UZ, layout)
+
+    fun loadCustomLayout(context: Context): KeyboardLayout? = loadCustomLayout(context, Languages.UZ)
 
     fun setActiveLayout(context: Context, which: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -39,15 +74,9 @@ object LayoutStorage {
         return prefs.getString(KEY_ACTIVE_LAYOUT, "default") ?: "default"
     }
 
-    /** IME shu funksiyani chaqiradi: foydalanuvchi tanlagan (default yoki custom) layoutni qaytaradi. */
-    fun getCurrentLayout(context: Context): KeyboardLayout {
-        return if (getActiveLayout(context) == "custom") {
-            loadCustomLayout(context) ?: defaultUzbekLayout()
-        } else {
-            defaultUzbekLayout()
-        }
-    }
+    fun getCurrentLayout(context: Context): KeyboardLayout = getLayoutFor(context, Languages.UZ)
 
+    // ===== Til sozlamalari =====
     fun getLanguage(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("language", "uz") ?: "uz"
 
@@ -78,14 +107,14 @@ object LayoutStorage {
         return true
     }
 
-    /** Eski saqlangan layoutlarni yangi belgilarga (ö, ğ, ʼ, ikonkali tugmalar) o'tkazadi. */
-    private fun migrateKey(k: KeyData) {
+    /** Eski saqlangan layoutlarni yangi belgilarga o'tkazadi (harf migratsiyasi faqat o'zbek uchun). */
+    private fun migrateKey(k: KeyData, uz: Boolean) {
         when (k.code) {
-            "o\u02BB" -> { k.label = "ö"; k.code = "ö" }
-            "g\u02BB" -> { k.label = "ğ"; k.code = "ğ" }
-            "'" -> if (!k.isSpecial) { k.label = "\u02BC"; k.code = "\u02BC" }
-            "\uD83D\uDE42" -> { k.label = ""; k.code = SpecialCodes.EMOJI }
             SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.ENTER, SpecialCodes.LANG_SWITCH -> k.label = ""
+            "\uD83D\uDE42" -> { k.label = ""; k.code = SpecialCodes.EMOJI }
+            "o\u02BB" -> if (uz) { k.label = "ö"; k.code = "ö" }
+            "g\u02BB" -> if (uz) { k.label = "ğ"; k.code = "ğ" }
+            "'" -> if (uz && !k.isSpecial) { k.label = "\u02BC"; k.code = "\u02BC" }
         }
     }
 
@@ -109,7 +138,7 @@ object LayoutStorage {
         return obj
     }
 
-    private fun fromJson(obj: JSONObject): KeyboardLayout {
+    private fun fromJson(obj: JSONObject, lang: String): KeyboardLayout {
         val keys = mutableListOf<KeyData>()
         val arr = obj.getJSONArray("keys")
         for (i in 0 until arr.length()) {
@@ -125,7 +154,7 @@ object LayoutStorage {
                 )
             )
         }
-        keys.forEach { migrateKey(it) }
+        keys.forEach { migrateKey(it, lang == Languages.UZ) }
         return KeyboardLayout(
             name = obj.optString("name", "Custom"),
             rows = obj.optInt("rows", 4),
