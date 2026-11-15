@@ -3,6 +3,7 @@ package com.yulemdokeyboard.editor
 import android.content.ClipData
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -47,6 +48,7 @@ class LayoutEditorActivity : AppCompatActivity() {
     private var symDeleteMode = false
     private var curPage = 0            // 0 - harflar (tanlangan til), 1 - Belgilar 1, 2 - Belgilar 2
     private lateinit var pageBar: LinearLayout
+    private lateinit var paletteScroll: ScrollView
     private lateinit var enabledSwitch: SwitchCompat
     private lateinit var sizeBar: LinearLayout
     private lateinit var rowsLabel: TextView
@@ -188,7 +190,7 @@ class LayoutEditorActivity : AppCompatActivity() {
 
         // Palitra (scroll)
         palette = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val paletteScroll = ScrollView(this).apply { addView(palette) }
+        paletteScroll = ScrollView(this).apply { addView(palette) }
         root.addView(paletteScroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(6) })
 
         // Pastki tugmalar (ixcham)
@@ -478,7 +480,14 @@ class LayoutEditorActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, -1))
     }
 
-    private fun renderPalette() {
+    /** keepScroll = true bo'lsa palitra qayta chizilganda scroll joyida qoladi. */
+    private fun renderPalette(keepScroll: Boolean = false) {
+        val y = if (keepScroll) paletteScroll.scrollY else 0
+        renderPaletteInner()
+        if (keepScroll) paletteScroll.post { paletteScroll.scrollTo(0, y) }
+    }
+
+    private fun renderPaletteInner() {
         palette.removeAllViews()
         val chip = dp(40)
         val m = dp(2)
@@ -587,7 +596,7 @@ class LayoutEditorActivity : AppCompatActivity() {
                 setTextColor(if (symDeleteMode) Color.WHITE else Ui.TEXT_SECONDARY)
                 setPadding(dp(10), dp(4), dp(10), dp(4))
                 background = if (symDeleteMode) Ui.fire(this@LayoutEditorActivity, 10) else Ui.glass(this@LayoutEditorActivity, 10)
-                setOnClickListener { symDeleteMode = !symDeleteMode; renderPalette() }
+                setOnClickListener { symDeleteMode = !symDeleteMode; renderPalette(true) }
             })
         }
         palette.addView(head)
@@ -618,7 +627,7 @@ class LayoutEditorActivity : AppCompatActivity() {
                 } else {
                     LayoutStorage.addMySymbols(this@LayoutEditorActivity, list)
                     symDeleteMode = false
-                    renderPalette()
+                    renderPalette(true)
                 }
             }
         }, LinearLayout.LayoutParams(dp(76), dp(40)).apply { marginStart = dp(6) })
@@ -635,17 +644,30 @@ class LayoutEditorActivity : AppCompatActivity() {
                 maxLines = 1
                 includeFontPadding = false
                 textSize = if (sym.length > 2) 10f else 15f
-                alpha = if (symDeleteMode) 0.6f else 1f
-                setOnClickListener {
+                if (symDeleteMode) {
+                    // o'chirish rejimida chip qizg'ish ko'rinadi
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(10).toFloat()
+                        setColor(Color.parseColor("#55FF3D00"))
+                        setStroke(dp(1), Color.parseColor("#FF3D00"))
+                    }
+                }
+                setOnClickListener { v ->
                     if (symDeleteMode) {
+                        // faqat shu chipni olib tashlaymiz (palitra qayta chizilmaydi, scroll joyida qoladi)
                         LayoutStorage.removeMySymbol(this@LayoutEditorActivity, sym)
-                        renderPalette()
+                        grid.removeView(v)
+                        if (grid.childCount == 0) {
+                            symDeleteMode = false
+                            renderPalette(true)
+                        }
                     } else {
                         if (!gridView.addKey(keyFromCode(sym))) toast(tr("To'r to'la", "Сетка заполнена", "Grid is full", "Tor tolǵan"))
                         updateUndoRedoState()
                     }
                 }
                 setOnLongClickListener { v ->
+                    if (symDeleteMode) return@setOnLongClickListener true
                     v.startDragAndDrop(ClipData.newPlainText("key", sym), View.DragShadowBuilder(v), null, 0)
                     true
                 }

@@ -111,15 +111,19 @@ class EditorGridView @JvmOverloads constructor(
                 val draggedView = event.localState as? TextView
                 val cell = cellAt(event.x, event.y) ?: return false
 
-                if (placed.containsKey(cell) && placed[cell] != draggedView) return false // band katak
-
                 if (draggedView != null && placed.values.contains(draggedView)) {
-                    if (placed[cell] == draggedView) return true // o'z joyiga tashlandi
+                    // Mavjud tugma: o'z joyiga yoki boshqa tugma ustiga tashlansa - o'chadi
+                    if (placed[cell] != null) {
+                        removeKeyView(draggedView)
+                        return true
+                    }
                     pushUndoSnapshot()
                     val oldKey = placed.entries.find { it.value == draggedView }?.key
                     if (oldKey != null) placed.remove(oldKey)
                     placeKey(draggedView, cell, draggedView.tag as? KeyData)
                 } else {
+                    // Palitradan yangi tugma: band katakka qo'shilmaydi
+                    if (placed.containsKey(cell)) return false
                     pushUndoSnapshot()
                     val key = keyFromCode(text, cell.first, cell.second)
                     placeKey(createKeyView(editorName(key)), cell, key)
