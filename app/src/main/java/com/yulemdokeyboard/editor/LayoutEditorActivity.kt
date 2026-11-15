@@ -45,6 +45,8 @@ class LayoutEditorActivity : AppCompatActivity() {
     private var curLang = Languages.UZ
     private var baseSig = ""
     private var symDeleteMode = false
+    private var curPage = 0            // 0 - harflar (tanlangan til), 1 - Belgilar 1, 2 - Belgilar 2
+    private lateinit var pageBar: LinearLayout
     private lateinit var enabledSwitch: SwitchCompat
     private lateinit var sizeBar: LinearLayout
     private lateinit var rowsLabel: TextView
@@ -126,6 +128,10 @@ class LayoutEditorActivity : AppCompatActivity() {
         topRow.addView(btnClose, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(8) })
         topRow.addView(langScroll, LinearLayout.LayoutParams(0, dp(38), 1f))
         root.addView(topRow, LinearLayout.LayoutParams(-1, dp(38)))
+
+        // Sahifa tanlash: harflar / belgilar 1 / belgilar 2
+        pageBar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        root.addView(pageBar, LinearLayout.LayoutParams(-1, dp(34)).apply { topMargin = dp(6) })
 
         // Qisqa yo'riqnoma
         root.addView(TextView(this).apply {
@@ -217,7 +223,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         btnRedo.setOnClickListener { gridView.redo(); updateUndoRedoState() }
 
         btnReset.setOnClickListener {
-            val def = LayoutStorage.defaultLayoutFor(curLang)
+            val def = if (curPage == 0) LayoutStorage.defaultLayoutFor(curLang) else LayoutStorage.defaultSymbolsLayout(curPage)
             gridView.setGrid(def.rows, def.cols)
             gridView.replaceKeys(def.keys)
             updateUndoRedoState()
@@ -236,7 +242,7 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     // ===== Til almashtirish =====
     private fun selectLang(l: String) {
-        if (l == curLang) return
+        if (l == curLang && curPage == 0) return
         confirmLeave { loadLanguage(l) }
     }
 
@@ -245,7 +251,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         if (!isDirty()) { then(); return }
         AlertDialog.Builder(this)
             .setTitle(tr("Saqlanmagan o'zgarişlar", "Несохранённые изменения", "Unsaved changes", "Saqlanbaǵan ózgerisler"))
-            .setMessage(Languages.nativeName(curLang))
+            .setMessage(currentTitle())
             .setPositiveButton(tr("Saqlaş", "Сохранить", "Save", "Saqlaw")) { _, _ -> if (save()) then() }
             .setNegativeButton(tr("Saqlamasdan", "Не сохранять", "Discard", "Saqlamastan")) { _, _ -> then() }
             .setNeutralButton(tr("Bekor", "Отмена", "Cancel", "Biykar")) { d, _ -> d.dismiss() }
@@ -344,17 +350,52 @@ class LayoutEditorActivity : AppCompatActivity() {
         colsLabel.text = tr("Ustun ", "Столбцов ", "Cols ", "Ustın ") + gridView.cols
     }
 
-    private fun loadLanguage(lang: String) {
+    private fun loadLanguage(lang: String) = loadTarget(lang, 0)
+
+    private fun loadTarget(lang: String, page: Int) {
         curLang = lang
-        val layout = LayoutStorage.getLayoutFor(this, lang)
+        curPage = page
+        val layout = if (page == 0) LayoutStorage.getLayoutFor(this, lang)
+                     else LayoutStorage.getSymbolsLayout(this, page)
         gridView.setGrid(layout.rows, layout.cols)
         gridView.loadKeys(layout.keys)
         baseSig = fullSig()
         updateSizeLabels()
+        enabledSwitch.visibility = if (page == 0) View.VISIBLE else View.GONE
         updateEnabledSwitch()
         renderLangBar()
+        renderPageBar()
         renderPalette()
         updateUndoRedoState()
+    }
+
+    private fun pageName(p: Int) = when (p) {
+        1 -> tr("Belgilar 1", "Символы 1", "Symbols 1", "Belgiler 1")
+        2 -> tr("Belgilar 2", "Символы 2", "Symbols 2", "Belgiler 2")
+        else -> tr("Harflar", "Буквы", "Letters", "Háripler")
+    }
+
+    private fun currentTitle() =
+        if (curPage == 0) Languages.nativeName(curLang) else pageName(curPage)
+
+    private fun renderPageBar() {
+        pageBar.removeAllViews()
+        for (p in 0..2) {
+            val sel = p == curPage
+            pageBar.addView(TextView(this).apply {
+                text = pageName(p)
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(if (sel) Color.WHITE else Ui.TEXT_PRIMARY)
+                typeface = if (sel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                background = if (sel) Ui.fire(this@LayoutEditorActivity, 14) else Ui.glass(this@LayoutEditorActivity, 14)
+                val custom = p != 0 && LayoutStorage.hasCustomSymbols(this@LayoutEditorActivity, p)
+                if (custom) text = "${pageName(p)} •"
+                setOnClickListener {
+                    if (p != curPage) confirmLeave { loadTarget(curLang, p) }
+                }
+            }, LinearLayout.LayoutParams(0, -1, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
+        }
     }
 
     private fun signature(keys: List<KeyData>): String =
@@ -372,17 +413,34 @@ class LayoutEditorActivity : AppCompatActivity() {
                 "Add at least one key first", "Aldın keminde bir túyme jaylastırıń"))
             return false
         }
-        val def = LayoutStorage.defaultLayoutFor(curLang)
-        if (signature(keys) == signature(def.keys)) {
-            LayoutStorage.clearCustomLayout(this, curLang)   // standartga teng - custom kerak emas
-        } else {
-            LayoutStorage.saveCustomLayout(
-                this, curLang,
-                KeyboardLayout(Languages.nativeName(curLang), gridView.rows, gridView.cols, keys.toMutableList())
+        if (curPage != 0) {
+            // Belgilar sahifasidan harflarga qaytish tugmasi (ABC) bo'lmasa klaviatura qotib qoladi
+            if (keys.none { it.code == SpecialCodes.LETTERS }) {
+                toast(tr("«ABC» tugmasini qoldiring - usiz harflarga qaytib bo'lmaydi",
+                    "Оставьте клавишу «ABC» — без неё не вернуться к буквам",
+                    "Keep the “ABC” key, otherwise you can't get back to letters",
+                    "«ABC» túymesin qaldırıń — onsız háriplerge qaytıp bolmaydı"))
+                return false
+            }
+            val def = LayoutStorage.defaultSymbolsLayout(curPage)
+            if (signature(keys) == signature(def.keys)) LayoutStorage.clearSymbolsLayout(this, curPage)
+            else LayoutStorage.saveSymbolsLayout(
+                this, curPage, KeyboardLayout(pageName(curPage), gridView.rows, gridView.cols, keys.toMutableList())
             )
+        } else {
+            val def = LayoutStorage.defaultLayoutFor(curLang)
+            if (signature(keys) == signature(def.keys)) {
+                LayoutStorage.clearCustomLayout(this, curLang)   // standartga teng - custom kerak emas
+            } else {
+                LayoutStorage.saveCustomLayout(
+                    this, curLang,
+                    KeyboardLayout(Languages.nativeName(curLang), gridView.rows, gridView.cols, keys.toMutableList())
+                )
+            }
         }
         baseSig = fullSig()
         renderLangBar()
+        renderPageBar()
         toast(tr("Saqlandi! Endi klaviaturada şu joylaşuv işlatiladi.", "Сохранено! Раскладка применена.",
             "Saved! The keyboard now uses this layout.", "Saqlandı! Endi klaviaturada usı jaylasıw isleydi."))
         return true
@@ -392,7 +450,7 @@ class LayoutEditorActivity : AppCompatActivity() {
     private fun renderLangBar() {
         langBar.removeAllViews()
         Languages.order.forEach { l ->
-            val sel = l == curLang
+            val sel = l == curLang && curPage == 0
             val custom = LayoutStorage.hasCustomLayout(this, l)
             val tv = TextView(this).apply {
                 text = Languages.nativeName(l) + if (custom) " •" else ""
@@ -429,7 +487,11 @@ class LayoutEditorActivity : AppCompatActivity() {
 
         renderMySymbols(chip, m, colCount)
 
-        val secs = if (Languages.isBuiltin(curLang)) sectionsFor(curLang) else sectionsForCustom()
+        val secs = when {
+            curPage != 0 -> sectionsForSymbols()
+            Languages.isBuiltin(curLang) -> sectionsFor(curLang)
+            else -> sectionsForCustom()
+        }
         secs.forEach { (title, codes) ->
             palette.addView(sectionTitle(title))
             val grid = GridLayout(this).apply { columnCount = colCount }
@@ -472,6 +534,22 @@ class LayoutEditorActivity : AppCompatActivity() {
         typeface = Typeface.DEFAULT_BOLD
         setPadding(dp(3), dp(8), dp(3), dp(2))
     }
+
+    /** Belgilar sahifalari uchun palitra. */
+    private fun sectionsForSymbols(): List<Pair<String, List<String>>> = listOf(
+        tr("Tugmalar", "Клавиши", "Keys", "Túymeler") to listOf(
+            SpecialCodes.BACKSPACE, SpecialCodes.ENTER, SpecialCodes.SPACE,
+            SpecialCodes.LETTERS, SpecialCodes.SYMBOLS1, SpecialCodes.SYMBOLS2, SpecialCodes.LANG_SWITCH
+        ),
+        tr("Raqamlar", "Цифры", "Digits", "Sanlar") to digits,
+        tr("Belgilar", "Знаки", "Symbols", "Belgiler") to symbolChars
+    )
+
+    private val symbolChars = listOf(
+        "-", "+", "=", "_", "*", "/", "\\", "|", "&", "@", "#", "$", "%", "€", "£", "¥", "₽", "₴", "₸", "¢",
+        "(", ")", "[", "]", "{", "}", "<", ">", "\"", "'", "`", "~", "^", ":", ";", ",", ".", "!", "?", "…",
+        "•", "√", "π", "÷", "×", "§", "∆", "°", "±", "∞", "™", "©", "®", "✓", "‰", "¶", "†", "‡", "≈", "≠", "≤", "≥"
+    )
 
     /** O'z til uchun: lotin + kirill + maxsus tugmalar + raqam/belgilar (hammasi tanlab olinadi). */
     private fun sectionsForCustom(): List<Pair<String, List<String>>> = listOf(

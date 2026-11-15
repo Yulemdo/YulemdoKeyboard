@@ -269,7 +269,8 @@ class EditorGridView @JvmOverloads constructor(
 
 private val SPECIAL_SET = setOf(
     SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.ENTER, SpecialCodes.SPACE,
-    SpecialCodes.SYMBOLS, SpecialCodes.LETTERS, SpecialCodes.LANG_SWITCH, SpecialCodes.EMOJI
+    SpecialCodes.SYMBOLS, SpecialCodes.LETTERS, SpecialCodes.LANG_SWITCH, SpecialCodes.EMOJI,
+    SpecialCodes.SYMBOLS1, SpecialCodes.SYMBOLS2
 )
 
 /** Palitradagi kod bo'yicha yangi tugma yaratadi (maxsus tugmalar uchun to'g'ri kenglik bilan). */
@@ -277,11 +278,18 @@ internal fun keyFromCode(code: String, row: Int = 0, col: Int = 0): KeyData {
     val special = code in SPECIAL_SET
     val w = when (code) {
         SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.SYMBOLS -> 1.3f
+        SpecialCodes.LETTERS, SpecialCodes.SYMBOLS1, SpecialCodes.SYMBOLS2 -> 1.4f
         SpecialCodes.ENTER -> 1.6f
         SpecialCodes.SPACE -> 4.4f
         else -> 1f
     }
-    return KeyData(if (special) "" else code, code, row, col, w, special)
+    val label = when (code) {
+        SpecialCodes.LETTERS -> "ABC"
+        SpecialCodes.SYMBOLS1 -> "123"
+        SpecialCodes.SYMBOLS2 -> "=\\<"
+        else -> if (special) "" else code
+    }
+    return KeyData(label, code, row, col, w, special)
 }
 
 /** Editorda tugma ustida ko'rinadigan nom (asosiy klaviaturada ikonka chiziladi, bu yerda matn). */
@@ -292,6 +300,8 @@ internal fun editorName(k: KeyData): String = when (k.code) {
     SpecialCodes.SPACE -> "space"
     SpecialCodes.SYMBOLS -> "123"
     SpecialCodes.LETTERS -> "ABC"
+    SpecialCodes.SYMBOLS1 -> "123"
+    SpecialCodes.SYMBOLS2 -> "=\\<"
     SpecialCodes.LANG_SWITCH -> "🌐"
     SpecialCodes.EMOJI, "\uD83D\uDE42" -> "☺"
     else -> if (k.label.isNotEmpty()) k.label else k.code
