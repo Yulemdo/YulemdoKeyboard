@@ -23,6 +23,31 @@ object LayoutStorage {
         else -> blankLayout(Languages.nativeName(lang))   // o'z til: standart = bo'sh
     }
 
+    // ===== Belgilar sahifalari (?123 -> 1-sahifa, =\\< -> 2-sahifa); barcha tillar uchun umumiy =====
+    fun defaultSymbolsLayout(page: Int): KeyboardLayout = if (page == 2) symbolsLayout2() else symbolsLayout()
+
+    private fun symKey(page: Int) = "custom_symbols_$page"
+
+    fun saveSymbolsLayout(context: Context, page: Int, layout: KeyboardLayout) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(symKey(page), toJson(layout).toString()).apply()
+    }
+
+    fun loadSymbolsLayout(context: Context, page: Int): KeyboardLayout? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(symKey(page), null) ?: return null
+        return try { fromJson(JSONObject(raw), "sym") } catch (e: Exception) { null }
+    }
+
+    fun clearSymbolsLayout(context: Context, page: Int) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(symKey(page)).apply()
+    }
+
+    fun hasCustomSymbols(context: Context, page: Int): Boolean = loadSymbolsLayout(context, page) != null
+
+    /** IME shu funksiyani chaqiradi: belgilar sahifasi (custom bo'lsa custom, aks holda standart). */
+    fun getSymbolsLayout(context: Context, page: Int): KeyboardLayout =
+        loadSymbolsLayout(context, page) ?: defaultSymbolsLayout(page)
+
     // ===== O'z tillar (foydalanuvchi 0 dan yaratadi) =====
     fun getCustomLanguages(context: Context): List<Pair<String, String>> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("custom_langs", null)
