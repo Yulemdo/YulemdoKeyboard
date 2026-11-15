@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.yulemdokeyboard.AppStrings
@@ -108,7 +109,20 @@ class LayoutEditorActivity : AppCompatActivity() {
             isHorizontalScrollBarEnabled = false
             addView(langBar)
         }
-        root.addView(langScroll, LinearLayout.LayoutParams(-1, dp(38)))
+        // Yuqori qator: chiqish tugmasi + til tugmalari
+        val topRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val btnClose = TextView(this).apply {
+            text = "✕"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            background = Ui.glass(this@LayoutEditorActivity, 16)
+            setOnClickListener { confirmLeave { finish() } }
+        }
+        topRow.addView(btnClose, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(8) })
+        topRow.addView(langScroll, LinearLayout.LayoutParams(0, dp(38), 1f))
+        root.addView(topRow, LinearLayout.LayoutParams(-1, dp(38)))
 
         // Qisqa yo'riqnoma
         root.addView(TextView(this).apply {
@@ -174,6 +188,11 @@ class LayoutEditorActivity : AppCompatActivity() {
         })
 
         setContentView(root)
+
+        // Orqaga tugmasi ham xuddi shu popup'ni ochadi
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() { confirmLeave { finish() } }
+        })
 
         gridView.onHistoryChanged = { updateUndoRedoState() }
         btnUndo.setOnClickListener { gridView.undo(); updateUndoRedoState() }
