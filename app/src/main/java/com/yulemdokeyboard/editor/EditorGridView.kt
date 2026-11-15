@@ -56,17 +56,26 @@ class EditorGridView @JvmOverloads constructor(
         setOnDragListener { _, event -> handleDrag(event) }
     }
 
-    private fun cellWidth() = if (cols > 0) width.toFloat() / cols else 0f
+    /** O'lchov bosqichida aniqlanadi, shunda tugmalar birinchi chizilishdayoq to'g'ri o'lchamda bo'ladi. */
+    private var gridW = 0
+
+    private fun cellWidth(): Float {
+        val w = if (gridW > 0) gridW else width
+        return if (cols > 0) w.toFloat() / cols else 0f
+    }
     private fun cellHeight() = cellHeightPx
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val h = (rows * cellHeightPx).toInt()
+        gridW = MeasureSpec.getSize(widthMeasureSpec)
+        relayoutKeys(request = false)   // bolalar o'lchanishidan oldin to'g'ri o'lcham beriladi
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY))
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        relayoutKeys()
+        gridW = w
+        relayoutKeys(request = false)
     }
 
     /** Qator/ustunlar sonini o'zgartiradi (tugmalar qayta joylanadi). */
@@ -134,21 +143,21 @@ class EditorGridView @JvmOverloads constructor(
         return false
     }
 
-    private fun applyBounds(view: View, cell: Pair<Int, Int>) {
+    private fun applyBounds(view: View, cell: Pair<Int, Int>, request: Boolean = true) {
         val cw = cellWidth()
         val ch = cellHeight()
         val inset = (2 * density).toInt()
-        val lp = LayoutParams(
-            maxOf(1, (cw - inset * 2).toInt()),
-            maxOf(1, (ch - inset * 2).toInt())
-        )
+        val lp = (view.layoutParams as? LayoutParams) ?: LayoutParams(1, 1)
+        lp.width = maxOf(1, (cw - inset * 2).toInt())
+        lp.height = maxOf(1, (ch - inset * 2).toInt())
         lp.leftMargin = (cell.second * cw).toInt() + inset
         lp.topMargin = (cell.first * ch).toInt() + inset
-        view.layoutParams = lp
+        if (view.layoutParams !== lp) view.layoutParams = lp
+        else if (request) view.requestLayout()
     }
 
-    private fun relayoutKeys() {
-        placed.forEach { (cell, view) -> applyBounds(view, cell) }
+    private fun relayoutKeys(request: Boolean = true) {
+        placed.forEach { (cell, view) -> applyBounds(view, cell, request) }
     }
 
     private fun placeKey(view: TextView, cell: Pair<Int, Int>, data: KeyData?) {

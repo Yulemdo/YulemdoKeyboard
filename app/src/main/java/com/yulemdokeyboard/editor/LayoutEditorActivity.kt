@@ -19,6 +19,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import android.content.res.ColorStateList
 import com.yulemdokeyboard.AppStrings
 import com.yulemdokeyboard.Ui
 import com.yulemdokeyboard.model.KeyData
@@ -43,6 +45,7 @@ class LayoutEditorActivity : AppCompatActivity() {
     private var curLang = Languages.UZ
     private var baseSig = ""
     private var symDeleteMode = false
+    private lateinit var enabledSwitch: SwitchCompat
     private lateinit var sizeBar: LinearLayout
     private lateinit var rowsLabel: TextView
     private lateinit var colsLabel: TextView
@@ -157,6 +160,21 @@ class LayoutEditorActivity : AppCompatActivity() {
         group(rowsLabel, { resize(-1, 0) }, { resize(1, 0) })
         group(colsLabel, { resize(0, -1) }, { resize(0, 1) })
         root.addView(sizeBar, LinearLayout.LayoutParams(-1, dp(32)))
+
+        // Shu til klaviaturada (globus tugmasida) yoqilganmi
+        enabledSwitch = SwitchCompat(this).apply {
+            textSize = 13f
+            setTextColor(Ui.TEXT_PRIMARY)
+            thumbTintList = ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(Ui.FIRE_1, Color.parseColor("#BDC1C6"))
+            )
+            trackTintList = ColorStateList(
+                arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(Color.parseColor("#66FFC107"), Color.parseColor("#33FFFFFF"))
+            )
+        }
+        root.addView(enabledSwitch, LinearLayout.LayoutParams(-1, dp(34)))
 
         // Ixcham to'r
         gridView = EditorGridView(this).apply { background = Ui.glass(this@LayoutEditorActivity, 12) }
@@ -303,6 +321,24 @@ class LayoutEditorActivity : AppCompatActivity() {
         updateSizeLabels()
     }
 
+    /** Joriy tilning "klaviaturada yoqilgan" holatini ko'rsatadi; o'zgartirilsa darhol saqlanadi. */
+    private fun updateEnabledSwitch() {
+        val l = curLang
+        enabledSwitch.setOnCheckedChangeListener(null)
+        enabledSwitch.text = tr("Klaviaturada yoniq (globus tugmasi)", "Включён в клавиатуре (кнопка глобуса)",
+            "Enabled on the keyboard (globe key)", "Klaviaturada qosılǵan (globus túymesi)")
+        enabledSwitch.isChecked = l in LayoutStorage.getEnabledLanguages(this)
+        enabledSwitch.setOnCheckedChangeListener { v, checked ->
+            if (!LayoutStorage.setLanguageEnabled(this, l, checked)) {
+                v.setOnCheckedChangeListener(null)
+                v.isChecked = true
+                updateEnabledSwitch()
+                toast(tr("Kamida bitta til yoniq qolişi kerak", "Должен остаться хотя бы один язык",
+                    "At least one language must stay on", "Keminde bir til qosılǵan bolıwı kerek"))
+            }
+        }
+    }
+
     private fun updateSizeLabels() {
         rowsLabel.text = tr("Qator ", "Строк ", "Rows ", "Qatar ") + gridView.rows
         colsLabel.text = tr("Ustun ", "Столбцов ", "Cols ", "Ustın ") + gridView.cols
@@ -315,6 +351,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         gridView.loadKeys(layout.keys)
         baseSig = fullSig()
         updateSizeLabels()
+        updateEnabledSwitch()
         renderLangBar()
         renderPalette()
         updateUndoRedoState()
