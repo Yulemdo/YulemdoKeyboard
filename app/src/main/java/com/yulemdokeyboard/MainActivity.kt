@@ -21,6 +21,17 @@ import androidx.appcompat.app.AppCompatActivity
 import com.yulemdokeyboard.editor.LayoutEditorActivity
 
 class MainActivity : AppCompatActivity() {
+    private var rootRef: LinearLayout? = null
+    private var cardRef: LinearLayout? = null
+
+    // Muharrirda yangi til yaratilgan / yoqilgan bo'lishi mumkin - til kartasini yangilaymiz
+    override fun onResume() {
+        super.onResume()
+        val r = rootRef ?: return
+        cardRef?.let { r.removeView(it) }
+        addLanguageCard(r)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -67,6 +78,7 @@ class MainActivity : AppCompatActivity() {
             finish()
         }
 
+        rootRef = root
         addLanguageCard(root)
 
         val scroll = ScrollView(this).apply {
@@ -145,6 +157,7 @@ class MainActivity : AppCompatActivity() {
             }
             card.addView(sw, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
+        cardRef = card
         root.addView(
             card,
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
