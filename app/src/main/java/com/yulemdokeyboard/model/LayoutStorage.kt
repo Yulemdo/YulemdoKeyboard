@@ -19,7 +19,74 @@ object LayoutStorage {
         Languages.KAA -> karakalpakLayout()
         Languages.EN -> englishLayout()
         Languages.RU -> russianLayout()
-        else -> defaultUzbekLayout()
+        Languages.UZ -> defaultUzbekLayout()
+        else -> blankLayout(Languages.nativeName(lang))   // o'z til: standart = bo'sh
+    }
+
+    // ===== O'z tillar (foydalanuvchi 0 dan yaratadi) =====
+    fun getCustomLanguages(context: Context): List<Pair<String, String>> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("custom_langs", null)
+        val list = mutableListOf<Pair<String, String>>()
+        if (raw != null) try {
+            val arr = JSONArray(raw)
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                list.add(o.getString("id") to o.getString("name"))
+            }
+        } catch (e: Exception) { }
+        Languages.setCustom(list)
+        return list
+    }
+
+    private fun saveCustomLanguages(context: Context, list: List<Pair<String, String>>) {
+        val arr = JSONArray()
+        list.forEach { (id, name) -> arr.put(JSONObject().put("id", id).put("name", name)) }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("custom_langs", arr.toString()).apply()
+        Languages.setCustom(list)
+    }
+
+    /** Yangi til yaratadi, layoutini saqlaydi va yoqadi. Til id'sini qaytaradi. */
+    fun addCustomLanguage(context: Context, name: String, layout: KeyboardLayout): String {
+        val list = getCustomLanguages(context).toMutableList()
+        val id = "x" + java.lang.Long.toString(System.currentTimeMillis(), 36)
+        list.add(id to name)
+        saveCustomLanguages(context, list)
+        saveCustomLayout(context, id, KeyboardLayout(name, layout.rows, layout.cols, layout.keys))
+        setLanguageEnabled(context, id, true)
+        return id
+    }
+
+    fun deleteCustomLanguage(context: Context, id: String) {
+        val list = getCustomLanguages(context).filter { it.first != id }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val enabled = getEnabledLanguages(context).filter { it != id }
+        prefs.edit().remove(customKey(id))
+            .putString("enabled_langs", enabled.joinToString(","))
+            .apply()
+        saveCustomLanguages(context, list)
+        if (getLanguage(context) == id) setLanguage(context, Languages.UZ)
+    }
+
+    // ===== Mening belgilarim (paste qilingan, barcha tillar uchun umumiy) =====
+    fun getMySymbols(context: Context): List<String> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("my_symbols", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    private fun putMySymbols(context: Context, list: List<String>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("my_symbols", JSONArray(list).toString()).apply()
+    }
+
+    fun addMySymbols(context: Context, add: List<String>) {
+        putMySymbols(context, (getMySymbols(context) + add).distinct())
+    }
+
+    fun removeMySymbol(context: Context, s: String) {
+        putMySymbols(context, getMySymbols(context).filter { it != s })
     }
 
     private fun customKey(lang: String) =
@@ -86,6 +153,7 @@ object LayoutStorage {
 
     /** Klaviaturada yoqilgan tillar (globus bilan aylanadi). Hech narsa saqlanmagan bo'lsa - hammasi yoqiq. */
     fun getEnabledLanguages(context: Context): List<String> {
+        getCustomLanguages(context)   // o'z tillar ro'yxatini Languages'ga yuklaydi
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("enabled_langs", null)
             ?: return Languages.order
         val set = raw.split(",").toSet()

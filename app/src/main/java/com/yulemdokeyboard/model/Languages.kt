@@ -8,8 +8,18 @@ object Languages {
     const val EN = "en"
     const val RU = "ru"
 
-    /** Globus tugmasi bosilganda aylanish tartibi. */
-    val order = listOf(UZ, KAA, EN, RU)
+    /** O'rnatilgan tillar. */
+    val builtin = listOf(UZ, KAA, EN, RU)
+
+    /** Foydalanuvchi o'zi yaratgan tillar (id, nom). LayoutStorage.getCustomLanguages() to'ldiradi. */
+    @Volatile
+    private var custom: List<Pair<String, String>> = emptyList()
+
+    fun setCustom(list: List<Pair<String, String>>) { custom = list }
+    fun isBuiltin(lang: String) = lang in builtin
+
+    /** Globus tugmasi bosilganda aylanish tartibi (o'rnatilgan + o'z tillar). */
+    val order: List<String> get() = builtin + custom.map { it.first }
 
     fun next(current: String): String = order[(order.indexOf(current) + 1).mod(order.size)]
 
@@ -26,7 +36,7 @@ object Languages {
         KAA -> "Qaraqalpaqsha"
         EN -> "English"
         RU -> "Русский"
-        else -> lang
+        else -> custom.firstOrNull { it.first == lang }?.second ?: lang
     }
 
     /** Space tugmasida ko'rinadigan nom (yangi alifbo bo'yicha: Özbekça). */
@@ -35,7 +45,7 @@ object Languages {
         KAA -> "QARAQALPAQSHA"
         EN -> "ENGLISH"
         RU -> "РУССКИЙ"
-        else -> ""
+        else -> custom.firstOrNull { it.first == lang }?.second?.uppercase() ?: ""
     }
 
     fun badge(lang: String): String = if (lang == UZ) "V3" else ""
@@ -92,3 +102,20 @@ fun russianLayout(): KeyboardLayout = letterLayout(
     // "ъ" alohida tugma emas: "ь" ni bosib tursangiz "ъ" yoziladi. "ё" ham alohida emas: "е" ni bosib turing.
     listOf("я", "ч", "с", "м", "и", "т", "ь", "б", "ю")
 )
+
+/**
+ * Bo'sh (0 dan) layout: faqat Shift, Backspace va pastki qator (123, til, vergul, space, nuqta, enter).
+ * Harflarni foydalanuvchi muharrirda o'zi joylaydi.
+ */
+fun blankLayout(name: String): KeyboardLayout {
+    val keys = mutableListOf<KeyData>()
+    keys.add(KeyData("", SpecialCodes.SHIFT, row = 2, col = 0, width = 1.3f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.BACKSPACE, row = 2, col = 10, width = 1.3f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.SYMBOLS, row = 3, col = 0, width = 1.3f, isSpecial = true))
+    keys.add(KeyData("", SpecialCodes.LANG_SWITCH, row = 3, col = 1, isSpecial = true))
+    keys.add(KeyData(",", ",", row = 3, col = 2))
+    keys.add(KeyData("", SpecialCodes.SPACE, row = 3, col = 3, width = 4.4f, isSpecial = true))
+    keys.add(KeyData(".", ".", row = 3, col = 4))
+    keys.add(KeyData("", SpecialCodes.ENTER, row = 3, col = 5, width = 1.6f, isSpecial = true))
+    return KeyboardLayout(name = name, rows = 4, cols = 11, keys = keys)
+}
