@@ -1,5 +1,6 @@
 package com.yulemdokeyboard.editor
 
+import android.content.ClipData
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,15 +11,17 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
+import com.yulemdokeyboard.Ui
 import com.yulemdokeyboard.model.KeyData
 import com.yulemdokeyboard.model.SpecialCodes
 
 /**
- * Drag-drop qilib tugmalar joylashtiriladigan to'r (grid).
- * - Palette'dagi chip shu yerga tortib tashlansa -> yangi tugma qo'shiladi (eng yaqin katakka "snap" qilinadi).
- * - To'rda turgan tugma qayta tortilsa -> boshqa katakka ko'chadi.
- * - To'rdagi tugmaga oddiy bosilsa (tap) -> o'sha tugma o'chiriladi (undo bilan qaytarish mumkin).
- * - Har bir o'zgarish (qo'shish/ko'chirish/o'chirish) tarixga yoziladi -> undo()/redo().
+ * Drag-drop qilib tugmalar joylashtiriladigan ixcham to'r (grid).
+ * - Palitradagi chip shu yerga tortib tashlansa (yoki chipga bosilsa - birinchi bo'sh katakka) yangi tugma qo'shiladi.
+ * - To'rdagi tugmani bosib turib surilsa -> boshqa katakka ko'chadi.
+ * - To'rdagi tugmaga oddiy bosilsa (tap) -> tugma o'chadi (Undo bilan qaytariladi).
+ * - Har bir o'zgarish tarixga yoziladi -> undo()/redo().
+ * Katak balandligi qat'iy (ixcham), to'r balandligi = qatorlar soni * katak balandligi.
  */
 class EditorGridView @JvmOverloads constructor(
     context: Context,
@@ -26,21 +29,24 @@ class EditorGridView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs) {
 
     var rows = 4
+        private set
     var cols = 10
+        private set
 
     /** Har bir o'zgarishdan keyin chaqiriladi (Undo/Redo tugmalarini yangilash uchun). */
     var onHistoryChanged: (() -> Unit)? = null
 
+    private val density = resources.displayMetrics.density
+    private val cellHeightPx = 42f * density
+
     private val gridPaint = Paint().apply {
-        color = Color.parseColor("#1FFFFFFF")
+        color = Color.parseColor("#1AFFFFFF")
         style = Paint.Style.STROKE
-        strokeWidth = 1.5f
+        strokeWidth = 1f
     }
 
-    // row -> col -> placed key view (key dekorativ qiymatlari bilan)
     private val placed = mutableMapOf<Pair<Int, Int>, TextView>()
 
-    // ===== Undo / Redo =====
     private val undoStack = ArrayDeque<List<KeyData>>()
     private val redoStack = ArrayDeque<List<KeyData>>()
     private var suppressHistory = false
@@ -50,15 +56,34 @@ class EditorGridView @JvmOverloads constructor(
         setOnDragListener { _, event -> handleDrag(event) }
     }
 
-    private fun cellWidth() = width.toFloat() / cols
-    private fun cellHeight() = height.toFloat() / rows
+    private fun cellWidth() = if (cols > 0) width.toFloat() / cols else 0f
+    private fun cellHeight() = cellHeightPx
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val h = (rows * cellHeightPx).toInt()
+        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY))
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        relayoutKeys()
+    }
+
+    /** Qator/ustunlar sonini o'zgartiradi (tugmalar qayta joylanadi). */
+    fun setGrid(newRows: Int, newCols: Int) {
+        rows = newRows.coerceAtLeast(1)
+        cols = newCols.coerceAtLeast(1)
+        relayoutKeys()
+        requestLayout()
+        invalidate()
+    }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val cw = cellWidth()
         val ch = cellHeight()
         for (r in 0..rows) canvas.drawLine(0f, r * ch, width.toFloat(), r * ch, gridPaint)
-        for (c in 0..cols) canvas.drawLine(c * cw, 0f, c * cw, height.toFloat(), gridPaint)
+        for (c in 0..cols) canvas.drawLine(c * cw, 0f, c * cw, rows * ch, gridPaint)
     }
 
     private fun cellAt(x: Float, y: Float): Pair<Int, Int>? {
@@ -73,31 +98,22 @@ class EditorGridView @JvmOverloads constructor(
     private fun handleDrag(event: DragEvent): Boolean {
         when (event.action) {
             DragEvent.ACTION_DROP -> {
-                val label = event.clipData?.getItemAt(0)?.text?.toString() ?: return false
+                val text = event.clipData?.getItemAt(0)?.text?.toString() ?: return false
                 val draggedView = event.localState as? TextView
                 val cell = cellAt(event.x, event.y) ?: return false
 
-                // Agar shu katakda allaqachon boshqa tugma bo'lsa, eski joyni bo'shatamiz.
-                if (placed.containsKey(cell) && placed[cell] != draggedView) {
-                    return false // band katak - tashlashga ruxsat yo'q
-                }
+                if (placed.containsKey(cell) && placed[cell] != draggedView) return false // band katak
 
-                pushUndoSnapshot()
                 if (draggedView != null && placed.values.contains(draggedView)) {
-                    // Mavjud tugma ko'chmoqda - eski o'rnini bo'shatamiz
+                    if (placed[cell] == draggedView) return true // o'z joyiga tashlandi
+                    pushUndoSnapshot()
                     val oldKey = placed.entries.find { it.value == draggedView }?.key
                     if (oldKey != null) placed.remove(oldKey)
-                    placeKey(draggedView, cell, (draggedView.tag as? KeyData))
+                    placeKey(draggedView, cell, draggedView.tag as? KeyData)
                 } else {
-                    // Palette'dan yangi tugma qo'shilmoqda
-                    val newView = createKeyView(label)
-                    placeKey(newView, cell, KeyData(label = label, code = label, row = cell.first, col = cell.second))
-                }
-                return true
-            }
-            DragEvent.ACTION_DRAG_ENDED -> {
-                if (!event.result) {
-                    // chetga tashlab yuborildi -> hech narsa qilmaymiz (joyida qoladi)
+                    pushUndoSnapshot()
+                    val key = keyFromCode(text, cell.first, cell.second)
+                    placeKey(createKeyView(editorName(key)), cell, key)
                 }
                 return true
             }
@@ -105,35 +121,60 @@ class EditorGridView @JvmOverloads constructor(
         }
     }
 
-    private fun placeKey(view: TextView, cell: Pair<Int, Int>, data: KeyData?) {
-        if (view.parent == null) addView(view)
+    /** Birinchi bo'sh katakka tugma qo'shadi. To'r to'la bo'lsa false. */
+    fun addKey(key: KeyData): Boolean {
+        for (r in 0 until rows) for (c in 0 until cols) {
+            if (!placed.containsKey(r to c)) {
+                pushUndoSnapshot()
+                key.row = r; key.col = c
+                placeKey(createKeyView(editorName(key)), r to c, key)
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun applyBounds(view: View, cell: Pair<Int, Int>) {
         val cw = cellWidth()
         val ch = cellHeight()
-        val inset = (3 * resources.displayMetrics.density).toInt()
-        val lp = LayoutParams((cw - inset * 2).toInt(), (ch - inset * 2).toInt())
+        val inset = (2 * density).toInt()
+        val lp = LayoutParams(
+            maxOf(1, (cw - inset * 2).toInt()),
+            maxOf(1, (ch - inset * 2).toInt())
+        )
         lp.leftMargin = (cell.second * cw).toInt() + inset
         lp.topMargin = (cell.first * ch).toInt() + inset
         view.layoutParams = lp
+    }
+
+    private fun relayoutKeys() {
+        placed.forEach { (cell, view) -> applyBounds(view, cell) }
+    }
+
+    private fun placeKey(view: TextView, cell: Pair<Int, Int>, data: KeyData?) {
         data?.row = cell.first
         data?.col = cell.second
         view.tag = data
         placed[cell] = view
+        applyBounds(view, cell)
+        if (view.parent == null) addView(view)
+        notifyHistoryChanged()
     }
 
-    private fun createKeyView(label: String): TextView {
+    private fun createKeyView(name: String): TextView {
         val tv = TextView(context)
-        tv.text = label
+        tv.text = name
         tv.setTextColor(Color.WHITE)
-        tv.background = com.yulemdokeyboard.Ui.glass(context, 12)
+        tv.background = Ui.glass(context, 8)
         tv.gravity = Gravity.CENTER
-        tv.textSize = 13f
-        val pad = (4 * resources.displayMetrics.density).toInt()
-        tv.setPadding(pad, pad, pad, pad)
+        tv.maxLines = 1
+        tv.includeFontPadding = false
+        tv.textSize = if (name.length > 2) 9f else 14f
+        tv.setPadding(0, 0, 0, 0)
         tv.setOnLongClickListener { v ->
             startKeyDrag(v as TextView)
             true
         }
-        // Yangi: oddiy bosish (tap) - tugmani o'chiradi. Undo bilan qaytarish mumkin.
         tv.setOnClickListener { v -> removeKeyView(v as TextView) }
         return tv
     }
@@ -147,9 +188,9 @@ class EditorGridView @JvmOverloads constructor(
     }
 
     private fun startKeyDrag(view: TextView) {
-        val clip = android.content.ClipData.newPlainText("key", view.text)
-        val shadow = DragShadowBuilder(view)
-        view.startDragAndDrop(clip, shadow, view, 0)
+        val code = (view.tag as? KeyData)?.code ?: view.text.toString()
+        val clip = ClipData.newPlainText("key", code)
+        view.startDragAndDrop(clip, DragShadowBuilder(view), view, 0)
     }
 
     fun removeAll() {
@@ -157,31 +198,40 @@ class EditorGridView @JvmOverloads constructor(
         placed.clear()
     }
 
-    /** resetHistory = true bo'lsa (masalan boshlang'ich yuklashda yoki "Standartga qaytarish"da) undo/redo tozalanadi. */
+    /** Tugmalarni yuklaydi; kerak bo'lsa to'r o'lchamini kengaytiradi. */
     fun loadKeys(keys: List<KeyData>, resetHistory: Boolean = true) {
         removeAll()
+        val needRows = (keys.maxOfOrNull { it.row } ?: 0) + 1
+        val needCols = (keys.maxOfOrNull { it.col } ?: 0) + 1
+        if (needRows > rows || needCols > cols) setGrid(maxOf(rows, needRows), maxOf(cols, needCols))
+        val prev = suppressHistory
+        suppressHistory = true
         keys.forEach { k ->
-            val tv = createKeyView(editorName(k))
-            placeKey(tv, k.row to k.col, k.copy())
+            val copy = k.copy()
+            placeKey(createKeyView(editorName(copy)), copy.row to copy.col, copy)
         }
+        suppressHistory = prev
         if (resetHistory) {
             undoStack.clear()
             redoStack.clear()
-            notifyHistoryChanged()
         }
+        notifyHistoryChanged()
     }
 
-    fun exportKeys(): List<KeyData> {
-        return placed.values.mapNotNull { it.tag as? KeyData }
+    /** Hamma tugmani almashtiradi (Undo bilan qaytariladi). */
+    fun replaceKeys(keys: List<KeyData>) {
+        pushUndoSnapshot()
+        loadKeys(keys, resetHistory = false)
     }
 
-    // ===== Undo / Redo mantig'i =====
+    fun exportKeys(): List<KeyData> = placed.values.mapNotNull { it.tag as? KeyData }
+
+    // ===== Undo / Redo =====
     private fun pushUndoSnapshot() {
         if (suppressHistory) return
         undoStack.addLast(exportKeys().map { it.copy() })
         if (undoStack.size > 30) undoStack.removeFirst()
         redoStack.clear()
-        notifyHistoryChanged()
     }
 
     fun canUndo() = undoStack.isNotEmpty()
@@ -192,10 +242,7 @@ class EditorGridView @JvmOverloads constructor(
         val current = exportKeys().map { it.copy() }
         val prev = undoStack.removeLast()
         redoStack.addLast(current)
-        suppressHistory = true
         loadKeys(prev, resetHistory = false)
-        suppressHistory = false
-        notifyHistoryChanged()
     }
 
     fun redo() {
@@ -203,15 +250,29 @@ class EditorGridView @JvmOverloads constructor(
         val current = exportKeys().map { it.copy() }
         val next = redoStack.removeLast()
         undoStack.addLast(current)
-        suppressHistory = true
         loadKeys(next, resetHistory = false)
-        suppressHistory = false
-        notifyHistoryChanged()
     }
 
     private fun notifyHistoryChanged() {
-        onHistoryChanged?.invoke()
+        if (!suppressHistory) onHistoryChanged?.invoke()
     }
+}
+
+private val SPECIAL_SET = setOf(
+    SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.ENTER, SpecialCodes.SPACE,
+    SpecialCodes.SYMBOLS, SpecialCodes.LETTERS, SpecialCodes.LANG_SWITCH, SpecialCodes.EMOJI
+)
+
+/** Palitradagi kod bo'yicha yangi tugma yaratadi (maxsus tugmalar uchun to'g'ri kenglik bilan). */
+internal fun keyFromCode(code: String, row: Int = 0, col: Int = 0): KeyData {
+    val special = code in SPECIAL_SET
+    val w = when (code) {
+        SpecialCodes.SHIFT, SpecialCodes.BACKSPACE, SpecialCodes.SYMBOLS -> 1.3f
+        SpecialCodes.ENTER -> 1.6f
+        SpecialCodes.SPACE -> 4.4f
+        else -> 1f
+    }
+    return KeyData(if (special) "" else code, code, row, col, w, special)
 }
 
 /** Editorda tugma ustida ko'rinadigan nom (asosiy klaviaturada ikonka chiziladi, bu yerda matn). */
