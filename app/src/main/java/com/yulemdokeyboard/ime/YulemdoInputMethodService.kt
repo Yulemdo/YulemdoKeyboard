@@ -25,11 +25,6 @@ import com.yulemdokeyboard.model.KeyboardLayout
 import com.yulemdokeyboard.model.Languages
 import com.yulemdokeyboard.model.LayoutStorage
 import com.yulemdokeyboard.model.SpecialCodes
-import com.yulemdokeyboard.model.englishLayout
-import com.yulemdokeyboard.model.karakalpakLayout
-import com.yulemdokeyboard.model.russianLayout
-import com.yulemdokeyboard.model.symbolsLayout
-import com.yulemdokeyboard.model.symbolsLayout2
 
 class YulemdoInputMethodService : InputMethodService() {
 
@@ -59,11 +54,6 @@ class YulemdoInputMethodService : InputMethodService() {
     private var lastShiftTime = 0L
 
     // Layoutlar bir marta yaratiladi (silliq ishlashi uchun)
-    private val sym1 by lazy { symbolsLayout() }
-    private val sym2 by lazy { symbolsLayout2() }
-    private val kaa by lazy { karakalpakLayout() }
-    private val en by lazy { englishLayout() }
-    private val ru by lazy { russianLayout() }
 
     override fun onCreate() {
         super.onCreate()
@@ -311,12 +301,7 @@ class YulemdoInputMethodService : InputMethodService() {
     }
 
     // ===== Sahifalar / tillar =====
-    private fun letterLayout(): KeyboardLayout = when (lang) {
-        Languages.KAA -> kaa
-        Languages.EN -> en
-        Languages.RU -> ru
-        else -> LayoutStorage.getCurrentLayout(this)
-    }
+    private fun letterLayout(): KeyboardLayout = LayoutStorage.getLayoutFor(this, lang)
 
     private fun showPage(p: Page) {
         page = p
@@ -327,8 +312,8 @@ class YulemdoInputMethodService : InputMethodService() {
             if (lang == Languages.RU && p == Page.LETTERS) mapOf("е" to "ё", "ь" to "ъ") else emptyMap()
         keyboardView.layoutModel = when (p) {
             Page.LETTERS -> letterLayout()
-            Page.SYM1 -> sym1
-            Page.SYM2 -> sym2
+            Page.SYM1 -> LayoutStorage.getSymbolsLayout(this, 1)
+            Page.SYM2 -> LayoutStorage.getSymbolsLayout(this, 2)
         }
     }
 

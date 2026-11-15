@@ -172,7 +172,13 @@ class KeyboardView @JvmOverloads constructor(
 
     // ===== Qat'iy balandlik =====
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), desiredHeight(layoutModel?.rows ?: 4))
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), desiredHeight(usedRowCount()))
+    }
+
+    /** Haqiqatda tugma turgan qatorlar soni (bo'sh qatorlar joy egallamaydi). */
+    private fun usedRowCount(): Int {
+        val n = layoutModel?.keys?.map { it.row }?.distinct()?.size ?: 4
+        return n.coerceAtLeast(1)
     }
 
     fun desiredHeight(rows: Int): Int =
@@ -190,7 +196,10 @@ class KeyboardView @JvmOverloads constructor(
         if (width == 0) return
 
         val byRow = model.keys.groupBy { it.row }
+        val rowOrder = byRow.keys.sorted()
         val availableFull = { n: Int -> width - sidePad * 2 - colGapPx * (n - 1).coerceAtLeast(0) }
+        // Kam tugmali qatorlarda tugmalar ulkan bo'lib ketmasligi uchun kenglik chegarasi (oddiy 10 tugmali qator kengligi)
+        val maxUnit = availableFull(10) / 10f * 1.15f
 
         // Faqat oddiy harflardan iborat qatorlar uchun yagona (eng tor) tugma kengligi -> qator markazlanadi
         var letterUnit = Float.MAX_VALUE
@@ -201,17 +210,22 @@ class KeyboardView @JvmOverloads constructor(
             }
         }
 
-        for (r in 0 until model.rows) {
+        var ri = 0   // faqat tugmasi bor qatorlar ketma-ket joylashadi
+        for (r in rowOrder) {
             val rowKeys = byRow[r]?.sortedBy { it.col } ?: continue
             val units = rowKeys.sumOf { it.width.toDouble() }.toFloat()
             if (units <= 0f) continue
             val isLetterRow = rowKeys.none { it.isSpecial }
-            val unit = if (isLetterRow && letterUnit != Float.MAX_VALUE) letterUnit
-            else availableFull(rowKeys.size) / units
+            val unit = minOf(
+                if (isLetterRow && letterUnit != Float.MAX_VALUE) letterUnit else availableFull(rowKeys.size) / units,
+                maxUnit
+            )
 
             val rowW = unit * units + colGapPx * (rowKeys.size - 1)
             var x = (width - rowW) / 2f
-            val y = vertPad + r * (rowHeightPx + rowGapPx)
+            val y = vertPad + ri * (rowHeightPx + rowGapPx)
+            val firstRow = ri == 0
+            ri++
 
             var digitIdx = 0
             rowKeys.forEachIndexed { i, k ->
@@ -222,7 +236,7 @@ class KeyboardView @JvmOverloads constructor(
                 if (!k.isSpecial && k.label.firstOrNull()?.isLetter() == true) {
                     val alt = altKeys[k.code]
                     if (alt != null) hints[k] = alt
-                    else if (r == 0 && digitIdx < 10) { hints[k] = ((digitIdx + 1) % 10).toString(); digitIdx++ }
+                    else if (firstRow && digitIdx < 10) { hints[k] = ((digitIdx + 1) % 10).toString(); digitIdx++ }
                 }
             }
         }
