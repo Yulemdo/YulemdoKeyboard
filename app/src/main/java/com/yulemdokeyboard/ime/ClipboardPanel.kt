@@ -110,10 +110,10 @@ private fun clipStrings(lang: String) = when (lang) {
         { n -> "$n belgilendi" }
     )
     else -> ClipStrings(
-        "Oxirgi nusxalanganlar", "Pinlangan", "Hozirça heç narsa yöq",
-        "Töliq köriş", "Qisqartiriş", "Pinlar limiti — 25 ta. Avval ortiqçasini öçiring",
-        "Öçiriş", "Belgilaş", "Pinlaş", "Pindan çiqariş", "Bekor qiliş",
-        { n -> "$n ta belgilandi" }
+        "Yaqinda nusxalanganlar", "Mahkamlanganlar", "Hozirça heç narsa yöq",
+        "Töliq körsatiş", "Yiğiş", "Mahkamlanganlar limiti — 25 ta. Avval keraksizlarini öçiring",
+        "Öçiriş", "Tanlaş", "Mahkamlaş", "Mahkamdan çiqariş", "Bekor qiliş",
+        { n -> "$n ta tanlandi" }
     )
 }
 

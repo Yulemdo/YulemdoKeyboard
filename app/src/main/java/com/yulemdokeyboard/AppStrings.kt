@@ -2,7 +2,10 @@ package com.yulemdokeyboard
 
 import android.content.Context
 
-/** Ilova matnlari 4 tilda. O'zbekcha matn yangi alifbo bo'yicha: oʻ→ö, gʻ→ğ, sh→ş, ch→ç, tutuq→ʼ. */
+/**
+ * Ilova matnlari 4 tilda. O'zbekcha matn (V3) yangi alifbo bo'yicha yoziladi:
+ * oʻ→ö, gʻ→ğ, sh→ş, ch→ç; tutuq belgisi ʼ o'zgarmaydi; «ng» ikki harf bo'lib qoladi.
+ */
 data class Pack(
     val welcomeTitle: String,
     val welcomeBody: String,
@@ -63,18 +66,19 @@ object AppStrings {
     // ===== O'zbekcha (yangi alifbo, V3) =====
     private val uz = Pack(
         welcomeTitle = "Xuş kelibsiz!",
-        welcomeBody = "Yulemdo Klaviatura — özbek tili uçun yaratilgan çiroyli va qulay klaviatura.\n\n" +
-            "Yangi alifbo harflari — ö, ğ, ş, ç va tutuq belgisi ʼ — bir bosişda tayyor.",
+        welcomeBody = "Yulemdo Klaviatura — özbek tili uçun yaratilgan qulay va çiroyli klaviatura.\n\n" +
+            "Yangi alifbodagi ö, ğ, ş, ç harflari va tutuq belgisi (ʼ) bir bosişda tayyor.",
         step1Title = "1-qadam: klaviaturani yoqing",
-        step1Body = "«Klaviaturani yoqiş» tugmasini bosing va röyxatdan Yulemdo Klaviatura ni yoqib qöying.",
+        step1Body = "«Klaviaturani yoqiş» tugmasini bosing va röyxatdan «Yulemdo Klaviatura»ni yoqing.",
         step2Title = "2-qadam: klaviaturani tanlang",
-        step2Body = "Yozmoqçi bölgan joyni oçing, «Klaviaturani almaştiriş» tugmasini bosing va Yulemdo Klaviatura ni tanlang.",
+        step2Body = "Matn yoziladigan istalgan maydonni oçing, «Klaviaturani almaştiriş» tugmasini bosing va «Yulemdo Klaviatura»ni tanlang.",
         tipsTitle = "Foydali maslahatlar",
-        tipsBody = "• Yangi alifbo harflari — ö, ğ, ş, ç va tutuq ʼ — tugmalar qatorida tayyor turadi, alohida izlab özingizni qiynaştirmaysiz.\n" +
-            "• «sh», «ch», «oʻ/o'» va «gʻ/g'» kombinatsiyasini yozsangiz, klaviatura özi ularni ş, ç, ö, ğ ga aylantiradi.\n" +
-            "• Shift ni tez ikki marta bossangiz — CAPS LOCK yoqiladi.\n" +
-            "• Globus tugmasi tilni almaştiradi: özbek, qoraqalpoq, ingliz, rus.\n" +
-            "• «Klaviatura muharriri» orqali tugmalarni özingiz joylaştirasiz.",
+        tipsBody = "• Ö, ğ, ş, ç harflari va tutuq belgisi (ʼ) klaviaturaning özida bor — alohida izlab yurişning hojati yöq.\n" +
+            "• «sh», «ch», «oʻ» va «gʻ» ni yozsangiz, klaviatura ularni avtomatik ş, ç, ö va ğ ga aylantiradi.\n" +
+            "• Raqamlar yuqori qatordagi harflarni bosib turganda çiqadi.\n" +
+            "• Shift ni tez ikki marta bossangiz, CAPS LOCK yoqiladi.\n" +
+            "• Globus tugmasi tillarni almaştiradi: özbek, qoraqalpoq, ingliz, rus. Öz tilingizni «Klaviatura muharriri»da yaratişingiz mumkin.\n" +
+            "• «Klaviatura muharriri»da tugmalarni özingizga qulay joylaştirasiz.",
         next = "Keyingisi",
         back = "Orqaga",
         start = "Boşlaş",
@@ -87,16 +91,16 @@ object AppStrings {
     private val ru = Pack(
         welcomeTitle = "Добро пожаловать!",
         welcomeBody = "Yulemdo Клавиатура — удобная и красивая клавиатура для узбекского языка.\n\n" +
-            "Буквы нового алфавита — ö, ğ, ş, ç и апостроф ʼ — одним касанием.",
-        step1Title = "Шаг 1: включите клавиатуру",
-        step1Body = "Нажмите «Включить клавиатуру» и в списке включите Yulemdo Клавиатура.",
-        step2Title = "Шаг 2: выберите клавиатуру",
-        step2Body = "Откройте любое поле ввода, нажмите «Сменить клавиатуру» и выберите Yulemdo Клавиатура.",
+            "Буквы нового алфавита — ö, ğ, ş, ç и знак ʼ — доступны в одно касание.",
+        step1Title = "Шаг 1. Включите клавиатуру",
+        step1Body = "Нажмите «Включить клавиатуру» и в списке включите «Yulemdo Клавиатура».",
+        step2Title = "Шаг 2. Выберите клавиатуру",
+        step2Body = "Откройте любое поле ввода, нажмите «Сменить клавиатуру» и выберите «Yulemdo Клавиатура».",
         tipsTitle = "Полезные советы",
         tipsBody = "• Долгое нажатие на «е» вводит «ё», а на «ь» — «ъ». Цифры вводятся долгим нажатием на буквы верхнего ряда.\n" +
-            "• Удерживайте клавишу удаления — текст стирается непрерывно, без повторных нажатий.\n" +
-            "• Два быстрых нажатия на Shift — включается CAPS LOCK.\n" +
-            "• Кнопка глобуса переключает язык: узбекский, каракалпакский, английский, русский.\n" +
+            "• Удерживайте клавишу удаления — текст стирается непрерывно.\n" +
+            "• Два быстрых нажатия на Shift включают CAPS LOCK.\n" +
+            "• Кнопка глобуса переключает язык: узбекский, каракалпакский, английский, русский. Свой язык можно создать в «Редакторе клавиатуры».\n" +
             "• В «Редакторе клавиатуры» клавиши можно расставить по-своему.",
         next = "Далее",
         back = "Назад",
@@ -111,15 +115,15 @@ object AppStrings {
         welcomeTitle = "Welcome!",
         welcomeBody = "Yulemdo Keyboard is a beautiful, easy-to-use keyboard made for the Uzbek language.\n\n" +
             "Letters of the new alphabet — ö, ğ, ş, ç and the apostrophe ʼ — are one tap away.",
-        step1Title = "Step 1: enable the keyboard",
-        step1Body = "Tap “Enable keyboard” and turn on Yulemdo Keyboard in the list.",
-        step2Title = "Step 2: choose the keyboard",
-        step2Body = "Open any text field, tap “Switch keyboard” and select Yulemdo Keyboard.",
+        step1Title = "Step 1: Enable the keyboard",
+        step1Body = "Tap “Enable keyboard” and turn on “Yulemdo Keyboard” in the list.",
+        step2Title = "Step 2: Choose the keyboard",
+        step2Body = "Open any text field, tap “Switch keyboard” and select “Yulemdo Keyboard”.",
         tipsTitle = "Handy tips",
-        tipsBody = "• A clean standard QWERTY layout — no extra accented letters to learn, just type as usual.\n" +
-            "• Long-press a letter in the top row to type its number instead of switching pages.\n" +
+        tipsBody = "• A clean, standard QWERTY layout — just type as usual.\n" +
+            "• Long-press a letter in the top row to type its number.\n" +
             "• Double-tap Shift to turn on CAPS LOCK.\n" +
-            "• The globe key switches language: Uzbek, Karakalpak, English, Russian.\n" +
+            "• The globe key switches languages: Uzbek, Karakalpak, English, Russian. You can also create your own language in the keyboard editor.\n" +
             "• Use the “Keyboard editor” to arrange the keys your own way.",
         next = "Next",
         back = "Back",
@@ -134,21 +138,21 @@ object AppStrings {
         welcomeTitle = "Xosh keldińiz!",
         welcomeBody = "Yulemdo Klaviatura — qaraqalpaq, ózbek, rus hám ingliz tilleri ushín jaratílǵan qolaylí klaviatura.\n\n" +
             "Qaraqalpaq álipbesiniń á, ǵ, í, ń, ó, ú háripleri bir basíwda tayar.",
-        step1Title = "1-qádem: klaviaturanı qosíń",
-        step1Body = "«Klaviaturanı qosíw» túymesin basíń hám dizimnen Yulemdo Klaviatura-nı qosíń.",
-        step2Title = "2-qádem: klaviaturanı saylań",
-        step2Body = "Jazíw maydanın ashíń, «Klaviaturanı almastíríw» túymesin basíń hám Yulemdo Klaviatura-nı saylań.",
+        step1Title = "1-qádem: klaviaturaní qosíń",
+        step1Body = "«Klaviaturaní qosíw» túymesin basíń hám dizimnen «Yulemdo Klaviatura»ní qosíń.",
+        step2Title = "2-qádem: klaviaturaní saylań",
+        step2Body = "Jazíw maydanín ashíń, «Klaviaturaní almastíríw» túymesin basíń hám «Yulemdo Klaviatura»ní saylań.",
         tipsTitle = "Paydalí keńesler",
-        tipsBody = "• Qaraqalpaq álipbesiniń ózine tán háripleri — á, ǵ, í, ń, ó, ú — klaviaturada dáslep tayar turadí.\n" +
+        tipsBody = "• Qaraqalpaq álipbesine tán á, ǵ, í, ń, ó, ú háripleri klaviaturada tayar turadí.\n" +
             "• Háripti uzaq bassańíz, ústindegi san jazíladí.\n" +
-            "• Shift túymesin tez eki ret bassańíz — CAPS LOCK qosíladí.\n" +
-            "• Globus túymesi tildi almastíradí: ózbek, qaraqalpaq, ingliz, rus.\n" +
-            "• «Klaviatura redaktorí» arqalí túymelerdi ózińiz jaylastíra alasíz.",
+            "• Shift túymesin tez eki ret bassańíz, CAPS LOCK qosíladí.\n" +
+            "• Globus túymesi tildi almastíradí: ózbek, qaraqalpaq, ingliz, rus. Óz tilińizdi «Klaviatura redaktorí»nda jaratíwíńíz múmkin.\n" +
+            "• «Klaviatura redaktorí» arqalí túymelerdi ózińizge qolaylí jaylastíra alasíz.",
         next = "Keyingi",
         back = "Artqa",
         start = "Baslaw",
-        enableBtn = "Klaviaturanı qosíw",
-        switchBtn = "Klaviaturanı almastíríw",
+        enableBtn = "Klaviaturaní qosíw",
+        switchBtn = "Klaviaturaní almastíríw",
         editorBtn = "Klaviatura redaktorí"
     )
 }

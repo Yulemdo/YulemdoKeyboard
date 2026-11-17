@@ -78,7 +78,7 @@ class IntroActivity : AppCompatActivity() {
     // ===== 0-sahifa: til tanlash =====
     private fun renderLanguage() {
         content.addView(gradientText("Yulemdo", 38f))
-        content.addView(text("Til tanlang · Выберите язык · Choose language · Til saylań", 14f, "#B3FFFFFF").apply {
+        content.addView(text("Tilni tanlang · Выберите язык · Choose language · Tildi saylań", 14f, "#B3FFFFFF").apply {
             gravity = Gravity.CENTER
             setPadding(0, px(10), 0, px(28))
         })
@@ -214,8 +214,8 @@ class IntroActivity : AppCompatActivity() {
     }
 
     private fun lockedHint(p: Int): String = when (lang) {
-        AppStrings.RU -> if (p == 2) "Сначала включите клавиатуру, чтобы продолжить" else "Сначала выберите клавиатуру, чтобы продолжить"
-        AppStrings.EN -> if (p == 2) "Enable the keyboard first to continue" else "Select the keyboard first to continue"
+        AppStrings.RU -> if (p == 2) "Чтобы продолжить, сначала включите клавиатуру" else "Чтобы продолжить, сначала выберите клавиатуру"
+        AppStrings.EN -> if (p == 2) "To continue, enable the keyboard first" else "To continue, select the keyboard first"
         AppStrings.KAA -> if (p == 2) "Dawam etiw ushín aldín klaviaturaní qosíń" else "Dawam etiw ushín aldín klaviaturaní saylań"
         else -> if (p == 2) "Davom etiş uçun avval klaviaturani yoqing" else "Davom etiş uçun avval klaviaturani tanlang"
     }

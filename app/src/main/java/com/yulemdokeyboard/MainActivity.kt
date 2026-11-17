@@ -99,8 +99,8 @@ class MainActivity : AppCompatActivity() {
     private fun langHint(): String = when (AppStrings.getLang(this)) {
         AppStrings.RU -> "Включите нужные языки. Кнопка глобуса переключает только включённые."
         AppStrings.EN -> "Turn on the languages you need. The globe key cycles only through enabled ones."
-        AppStrings.KAA -> "Kerekli tillerdi qosíń. Globus túymesi tek qosílǵan tillerdi almastíradí."
-        else -> "Kerakli tillarni yoqing. Globus tugmasi faqat yoqilgan tillarni almaştiradi."
+        AppStrings.KAA -> "Kerekli tillerdi qosíń. Globus túymesi tek qosílǵan tiller arasında almastíradí."
+        else -> "Kerakli tillarni yoqing. Globus tugmasi faqat yoqilgan tillar orasida almaştiradi."
     }
 
     private fun lastLangMessage(): String = when (AppStrings.getLang(this)) {
@@ -167,9 +167,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun relangLabel(): String = when (AppStrings.getLang(this)) {
-        AppStrings.RU -> "Сменить язык"
+        AppStrings.RU -> "Изменить язык"
         AppStrings.EN -> "Change language"
-        AppStrings.KAA -> "Tildi almastíríw"
-        else -> "Tilni qayta tanlash"
+        AppStrings.KAA -> "Tildi ózgertiw"
+        else -> "Tilni özgartiriş"
     }
 }
