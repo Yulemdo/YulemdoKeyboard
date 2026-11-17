@@ -122,8 +122,12 @@ class EditorGridView @JvmOverloads constructor(
                     if (oldKey != null) placed.remove(oldKey)
                     placeKey(draggedView, cell, draggedView.tag as? KeyData)
                 } else {
-                    // Palitradan yangi tugma: band katakka qo'shilmaydi
-                    if (placed.containsKey(cell)) return false
+                    // Palitradan tugma band katak ustiga tashlansa - o'sha katakdagi tugma o'chadi
+                    val target = placed[cell]
+                    if (target != null) {
+                        removeKeyView(target)
+                        return true
+                    }
                     pushUndoSnapshot()
                     val key = keyFromCode(text, cell.first, cell.second)
                     placeKey(createKeyView(editorName(key)), cell, key)
@@ -190,6 +194,14 @@ class EditorGridView @JvmOverloads constructor(
         }
         tv.setOnClickListener { v -> removeKeyView(v as TextView) }
         return tv
+    }
+
+    /** Sudralayotgan tugma to'rda turgan bo'lsa o'chiradi (palitra ustiga tashlanganda). */
+    fun removeIfPlaced(view: Any?): Boolean {
+        val tv = view as? TextView ?: return false
+        if (!placed.values.contains(tv)) return false
+        removeKeyView(tv)
+        return true
     }
 
     private fun removeKeyView(view: TextView) {

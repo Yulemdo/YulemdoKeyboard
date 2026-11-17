@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.DragEvent
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -138,7 +139,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         // Qisqa yo'riqnoma
         root.addView(TextView(this).apply {
             text = tr(
-                "Tugmani bossangiz o'çadi · bosib turib suring · palitradagi tugmani bossangiz bo'ş katakka qöşiladi · öz tilingiz uçun «Yangi til»",
+                "Tugmani bossangiz o'çadi · bosib turib suring (palitraga yoki boshqa tugma ustiga tashlasangiz o'çadi) · palitradagi tugmani bossangiz bo'ş katakka qöşiladi · öz tilingiz uçun «Yangi til»",
                 "Нажатие на клавишу удаляет её · удерживайте и перетащите · нажатие на палитру добавляет в свободную клетку",
                 "Tap a key to remove it · hold and drag to move · tap a palette key to add it to the first free cell",
                 "Túymeni bassańız óshedi · uslap sürkeń · palitradaǵı túymeni bassańız bos katekke qosíladí"
@@ -190,7 +191,10 @@ class LayoutEditorActivity : AppCompatActivity() {
 
         // Palitra (scroll)
         palette = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        paletteScroll = ScrollView(this).apply { addView(palette) }
+        paletteScroll = ScrollView(this).apply {
+            addView(palette)
+            setOnDragListener { _, e -> handlePaletteDrag(e) }   // tugmani palitra ustiga tashlash = o'chirish
+        }
         root.addView(paletteScroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(6) })
 
         // Pastki tugmalar (ixcham)
@@ -480,6 +484,18 @@ class LayoutEditorActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, -1))
     }
 
+    /** To'rdagi tugma palitra ustiga sudrab tashlansa o'chadi. */
+    private fun handlePaletteDrag(e: DragEvent): Boolean {
+        when (e.action) {
+            DragEvent.ACTION_DRAG_STARTED -> return true
+            DragEvent.ACTION_DROP -> {
+                if (gridView.removeIfPlaced(e.localState)) updateUndoRedoState()
+                return true
+            }
+        }
+        return true
+    }
+
     /** keepScroll = true bo'lsa palitra qayta chizilganda scroll joyida qoladi. */
     private fun renderPalette(keepScroll: Boolean = false) {
         val y = if (keepScroll) paletteScroll.scrollY else 0
@@ -609,6 +625,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             textSize = 14f
             maxLines = 2
+            setOnDragListener { _, e -> handlePaletteDrag(e) }   // matn maydoniga tushsa ham belgi yozilmaydi, o'chadi
             background = Ui.glass(this@LayoutEditorActivity, 10)
             setPadding(dp(10), dp(6), dp(10), dp(6))
         }
