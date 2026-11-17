@@ -27,32 +27,34 @@ class StepAnimView @JvmOverloads constructor(
     private val dp = resources.displayMetrics.density
     private var t = 0f // 0..1, davriy
 
-    private val fireStart = Color.parseColor("#FFFF3D00")
-    private val fireEnd = Color.parseColor("#FFFFC107")
+    private val fireEnd = Ui.ACCENT
+    private val glassOff = if (Ui.night) Color.parseColor("#1FFFFFFF") else Color.parseColor("#14000000")
+    private val glassOn = if (Ui.night) Color.parseColor("#33FFFFFF") else Color.parseColor("#26000000")
+    private val softText = Ui.TEXT_PRIMARY
 
     private val glass = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#1FFFFFFF")
+        color = glassOff
     }
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 1f * dp
-        color = Color.parseColor("#33FFFFFF")
+        color = Ui.RIM
     }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
+        color = Ui.TEXT_PRIMARY
         textAlign = Paint.Align.CENTER
         textSize = 13f * resources.displayMetrics.scaledDensity
     }
     private val fingerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#F2FFFFFF")
+        color = if (Ui.night) Color.parseColor("#F2FFFFFF") else Color.parseColor("#E61A1C20")
     }
     private val fingerRing = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 2f * dp
-        color = Color.parseColor("#55FFC107")
+        color = Ui.withAlpha(Ui.ACCENT, 0x70)
     }
 
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -116,7 +118,7 @@ class StepAnimView @JvmOverloads constructor(
         roundRect(c, pad, rowY, width - pad, rowY + rowH, 14f * dp, border)
 
         text.textAlign = Paint.Align.LEFT
-        text.color = Color.parseColor("#DDFFFFFF")
+        text.color = softText
         c.drawText("Yulemdo Keyboard", pad + 16f * dp, rowY + rowH / 2f + 5f * dp, text)
         text.textAlign = Paint.Align.CENTER
 
@@ -125,11 +127,11 @@ class StepAnimView @JvmOverloads constructor(
         val sx = width - pad - 16f * dp - sw; val sy = rowY + rowH / 2f - sh / 2f
         val cyclePhase = phase(0f, 0.45f)
         val on = cyclePhase > 0.5f || t > 0.5f
-        val trackColor = if (on) Color.parseColor("#FFFFC107") else Color.parseColor("#33FFFFFF")
+        val trackColor = if (on) Ui.ACCENT else Ui.RIM
         fill.color = trackColor
         roundRect(c, sx, sy, sx + sw, sy + sh, sh / 2f, fill)
         val knobX = sx + sh / 2f + (sw - sh) * (if (on) 1f else 0f)
-        fill.color = Color.WHITE
+        fill.color = if (Ui.night) Color.WHITE else Color.parseColor("#FAFAFA")
         c.drawCircle(knobX, sy + sh / 2f, sh / 2f - 2f * dp, fill)
 
         // barmoq svitch ustiga kelib bosadi (0.15..0.4 oralig'ida)
@@ -153,15 +155,15 @@ class StepAnimView @JvmOverloads constructor(
             val ry = top + i * (rowH + gap)
             val selected = i == 0 && t > 0.55f
             fill.shader = null
-            glass.color = if (selected) Color.parseColor("#33FFC107") else Color.parseColor("#1FFFFFFF")
+            glass.color = if (selected) Ui.withAlpha(Ui.ACCENT, 0x40) else glassOff
             roundRect(c, pad, ry, width - pad, ry + rowH, 12f * dp, glass)
             roundRect(c, pad, ry, width - pad, ry + rowH, 12f * dp, border)
             text.textAlign = Paint.Align.LEFT
-            text.color = if (selected) fireEnd else Color.parseColor("#CCFFFFFF")
+            text.color = if (selected) fireEnd else softText
             c.drawText(label, pad + 14f * dp, ry + rowH / 2f + 5f * dp, text)
             text.textAlign = Paint.Align.CENTER
         }
-        glass.color = Color.parseColor("#1FFFFFFF")
+        glass.color = glassOff
 
         // barmoq birinchi qatorga bosadi 0.3..0.55
         if (t in 0.25f..0.6f) {
@@ -179,19 +181,19 @@ class StepAnimView @JvmOverloads constructor(
         val kx = width / 2f - keySize / 2f
         val ky = height / 2f - keySize / 2f
         val pressed = t in 0.25f..0.65f
-        glass.color = if (pressed) Color.parseColor("#33FFFFFF") else Color.parseColor("#1FFFFFFF")
+        glass.color = if (pressed) glassOn else glassOff
         roundRect(c, kx, ky, kx + keySize, ky + keySize, 12f * dp, glass)
         roundRect(c, kx, ky, kx + keySize, ky + keySize, 12f * dp, border)
-        glass.color = Color.parseColor("#1FFFFFFF")
+        glass.color = glassOff
 
         text.textSize = 22f * resources.displayMetrics.scaledDensity
-        text.color = Color.WHITE
+        text.color = Ui.TEXT_PRIMARY
         c.drawText("a", kx + keySize / 2f, ky + keySize / 2f + 8f * dp, text)
 
         // raqam belgisi: uzoq bosilganda kattalashib yorqinlashadi
         val hintAlpha = (phase(0.25f, 0.55f) * 255).toInt().coerceIn(0, 255)
         text.textSize = (10f + 6f * phase(0.25f, 0.55f)) * resources.displayMetrics.scaledDensity
-        text.color = Color.argb(hintAlpha, 255, 193, 7)
+        text.color = Ui.withAlpha(Ui.ACCENT, hintAlpha)
         c.drawText("2", kx + keySize / 2f, ky - 10f * dp, text)
         text.textSize = 13f * resources.displayMetrics.scaledDensity
 
@@ -205,7 +207,7 @@ class StepAnimView @JvmOverloads constructor(
         val sample = "salom dunyo"
         text.textAlign = Paint.Align.LEFT
         text.textSize = 16f * resources.displayMetrics.scaledDensity
-        text.color = Color.parseColor("#DDFFFFFF")
+        text.color = softText
         val heldFrac = phase(0.2f, 0.75f)
         val shown = (sample.length * (1f - heldFrac)).toInt().coerceIn(0, sample.length)
         val shownText = sample.substring(0, shown)
@@ -217,13 +219,13 @@ class StepAnimView @JvmOverloads constructor(
         val bw = 60f * dp; val bh = 40f * dp
         val bx = width - 20f * dp - bw; val by = height - 20f * dp - bh
         val pressed = t in 0.2f..0.78f
-        glass.color = if (pressed) Color.parseColor("#33FFFFFF") else Color.parseColor("#1FFFFFFF")
+        glass.color = if (pressed) glassOn else glassOff
         roundRect(c, bx, by, bx + bw, by + bh, 10f * dp, glass)
         roundRect(c, bx, by, bx + bw, by + bh, 10f * dp, border)
-        glass.color = Color.parseColor("#1FFFFFFF")
+        glass.color = glassOff
         text.textAlign = Paint.Align.CENTER
         text.textSize = 13f * resources.displayMetrics.scaledDensity
-        text.color = Color.parseColor("#DDFFFFFF")
+        text.color = softText
         c.drawText("⌫", bx + bw / 2f, by + bh / 2f + 5f * dp, text)
 
         if (pressed) drawFinger(c, bx + bw / 2f, by + bh / 2f, pressed = true)

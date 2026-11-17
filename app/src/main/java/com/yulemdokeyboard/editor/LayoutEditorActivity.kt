@@ -103,6 +103,7 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.applyTheme(this)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
 
         val root = LinearLayout(this).apply {
@@ -123,13 +124,14 @@ class LayoutEditorActivity : AppCompatActivity() {
             text = "✕"
             textSize = 16f
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.TEXT_PRIMARY)
             typeface = Typeface.DEFAULT_BOLD
             background = Ui.glass(this@LayoutEditorActivity, 16)
             setOnClickListener { confirmLeave { finish() } }
         }
         topRow.addView(btnClose, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(8) })
         topRow.addView(langScroll, LinearLayout.LayoutParams(0, dp(38), 1f))
+        topRow.addView(Ui.themeToggle(this), LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginStart = dp(8) })
         root.addView(topRow, LinearLayout.LayoutParams(-1, dp(38)))
 
         // Sahifa tanlash: harflar / belgilar 1 / belgilar 2
@@ -144,7 +146,7 @@ class LayoutEditorActivity : AppCompatActivity() {
                 "Tap a key to remove it · hold and drag to move · tap a palette key to add it to the first free cell",
                 "Túymeni bassańíz óshedi · uslap sürkeń · palitradaǵí túymeni bassańíz bos katekke qosíladí"
             )
-            setTextColor(Color.parseColor("#99FFFFFF"))
+            setTextColor(Ui.TEXT_SECONDARY)
             textSize = 11f
             setPadding(dp(2), dp(8), dp(2), dp(6))
         })
@@ -155,7 +157,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         colsLabel = TextView(this)
         fun stepBtn(t: String, onClick: () -> Unit) = TextView(this).apply {
             text = t; textSize = 16f; gravity = Gravity.CENTER
-            setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Ui.TEXT_PRIMARY); typeface = Typeface.DEFAULT_BOLD
             background = Ui.glass(this@LayoutEditorActivity, 8)
             setOnClickListener { onClick() }
         }
@@ -176,11 +178,11 @@ class LayoutEditorActivity : AppCompatActivity() {
             setTextColor(Ui.TEXT_PRIMARY)
             thumbTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(Ui.FIRE_1, Color.parseColor("#BDC1C6"))
+                intArrayOf(Ui.ACCENT, Ui.TEXT_SECONDARY)
             )
             trackTintList = ColorStateList(
                 arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                intArrayOf(Color.parseColor("#66FFC107"), Color.parseColor("#33FFFFFF"))
+                intArrayOf(Ui.withAlpha(Ui.ACCENT, 0x66), Ui.RIM)
             )
         }
         root.addView(enabledSwitch, LinearLayout.LayoutParams(-1, dp(34)))
@@ -392,9 +394,9 @@ class LayoutEditorActivity : AppCompatActivity() {
                 text = pageName(p)
                 textSize = 13f
                 gravity = Gravity.CENTER
-                setTextColor(if (sel) Color.WHITE else Ui.TEXT_PRIMARY)
+                setTextColor(if (sel) Ui.ACCENT else Ui.TEXT_PRIMARY)
                 typeface = if (sel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                background = if (sel) Ui.fire(this@LayoutEditorActivity, 14) else Ui.glass(this@LayoutEditorActivity, 14)
+                background = Ui.glass(this@LayoutEditorActivity, 14, accent = sel)
                 val custom = p != 0 && LayoutStorage.hasCustomSymbols(this@LayoutEditorActivity, p)
                 if (custom) text = "${pageName(p)} •"
                 setOnClickListener {
@@ -463,9 +465,9 @@ class LayoutEditorActivity : AppCompatActivity() {
                 textSize = 13f
                 gravity = Gravity.CENTER
                 setPadding(dp(14), 0, dp(14), 0)
-                setTextColor(if (sel) Color.WHITE else Ui.TEXT_PRIMARY)
+                setTextColor(if (sel) Ui.ACCENT else Ui.TEXT_PRIMARY)
                 typeface = if (sel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                background = if (sel) Ui.fire(this@LayoutEditorActivity, 16) else Ui.glass(this@LayoutEditorActivity, 16)
+                background = Ui.glass(this@LayoutEditorActivity, 16, accent = sel)
                 setOnClickListener { selectLang(l) }
                 if (!Languages.isBuiltin(l)) setOnLongClickListener { confirmDeleteLanguage(l); true }
             }
@@ -478,7 +480,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             textSize = 13f
             gravity = Gravity.CENTER
             setPadding(dp(14), 0, dp(14), 0)
-            setTextColor(Color.parseColor("#FFC107"))
+            setTextColor(Ui.ACCENT)
             background = Ui.glass(this@LayoutEditorActivity, 16)
             setOnClickListener { promptNewLanguage() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, -1))
@@ -524,7 +526,7 @@ class LayoutEditorActivity : AppCompatActivity() {
                 val name = editorName(keyFromCode(code))
                 val tv = TextView(this).apply {
                     text = name
-                    setTextColor(Color.WHITE)
+                    setTextColor(Ui.TEXT_PRIMARY)
                     background = Ui.glass(this@LayoutEditorActivity, 10)
                     gravity = Gravity.CENTER
                     maxLines = 1
@@ -554,7 +556,7 @@ class LayoutEditorActivity : AppCompatActivity() {
 
     private fun sectionTitle(t: String) = TextView(this).apply {
         text = t
-        setTextColor(Color.parseColor("#B3FFFFFF"))
+        setTextColor(Ui.TEXT_SECONDARY)
         textSize = 11f
         typeface = Typeface.DEFAULT_BOLD
         setPadding(dp(3), dp(8), dp(3), dp(2))
@@ -609,9 +611,9 @@ class LayoutEditorActivity : AppCompatActivity() {
             head.addView(TextView(this).apply {
                 text = (if (symDeleteMode) "✓ " else "✕ ") + tr("Öçiriş", "Удаление", "Delete mode", "Óshiriw")
                 textSize = 11f
-                setTextColor(if (symDeleteMode) Color.WHITE else Ui.TEXT_SECONDARY)
+                setTextColor(if (symDeleteMode) Ui.ACCENT else Ui.TEXT_SECONDARY)
                 setPadding(dp(10), dp(4), dp(10), dp(4))
-                background = if (symDeleteMode) Ui.fire(this@LayoutEditorActivity, 10) else Ui.glass(this@LayoutEditorActivity, 10)
+                background = Ui.glass(this@LayoutEditorActivity, 10, accent = symDeleteMode)
                 setOnClickListener { symDeleteMode = !symDeleteMode; renderPalette(true) }
             })
         }
@@ -621,8 +623,8 @@ class LayoutEditorActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val input = EditText(this).apply {
             hint = tr("Belgilarni şu yerga qöyib (paste) qiling", "Вставьте символы сюда", "Paste your symbols here", "Belgilerdi usí jerge paste etiń")
-            setHintTextColor(Color.parseColor("#66FFFFFF"))
-            setTextColor(Color.WHITE)
+            setHintTextColor(Ui.withAlpha(Ui.TEXT_SECONDARY, 0xAA))
+            setTextColor(Ui.TEXT_PRIMARY)
             textSize = 14f
             maxLines = 2
             setOnDragListener { _, e -> handlePaletteDrag(e) }   // matn maydoniga tushsa ham belgi yozilmaydi, o'chadi
@@ -635,7 +637,7 @@ class LayoutEditorActivity : AppCompatActivity() {
             textSize = 13f
             gravity = Gravity.CENTER
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.WHITE)
+            setTextColor(Ui.ACCENT)
             background = Ui.fire(this@LayoutEditorActivity, 10)
             setOnClickListener {
                 val list = parseSymbols(input.text.toString())
@@ -655,7 +657,7 @@ class LayoutEditorActivity : AppCompatActivity() {
         mine.forEach { sym ->
             val tv = TextView(this).apply {
                 text = sym
-                setTextColor(Color.WHITE)
+                setTextColor(Ui.TEXT_PRIMARY)
                 background = Ui.glass(this@LayoutEditorActivity, 10)
                 gravity = Gravity.CENTER
                 maxLines = 1

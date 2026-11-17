@@ -10,6 +10,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.util.TypedValue
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.applyTheme(this)
 
         // Birinchi kirishda: til tanlash va tanishtiruv
         if (!AppStrings.isIntroDone(this)) {
@@ -49,8 +51,19 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             background = Ui.appBackground(this@MainActivity)
             val p = Ui.dp(this@MainActivity, 24)
-            setPadding(p, p, p, p)
+            setPadding(p, p + Ui.dp(this@MainActivity, 36), p, p)
         }
+
+        root.addView(TextView(this).apply {
+            text = "Yulemdo"
+            setTextColor(Ui.TEXT_PRIMARY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            letterSpacing = 0.06f
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = Ui.dp(this@MainActivity, 12)
+        })
 
         fun addBtn(label: String, fire: Boolean, onClick: () -> Unit) {
             val b = Ui.button(this, label, fire)
@@ -85,7 +98,17 @@ class MainActivity : AppCompatActivity() {
             isFillViewport = true
             addView(root, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        setContentView(scroll)
+        // Orqa fon tekis; burchakda matnsiz rejim tugmasi (quyosh / oy)
+        val frame = FrameLayout(this).apply { background = Ui.appBackground(this@MainActivity) }
+        frame.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(
+            Ui.themeToggle(this),
+            FrameLayout.LayoutParams(Ui.dp(this, 40), Ui.dp(this, 40), Gravity.TOP or Gravity.END).apply {
+                topMargin = Ui.dp(this@MainActivity, 14)
+                marginEnd = Ui.dp(this@MainActivity, 14)
+            }
+        )
+        setContentView(frame)
     }
 
     // ===== Klaviatura tillarini yoqish / o'chirish =====
@@ -133,11 +156,11 @@ class MainActivity : AppCompatActivity() {
         val enabled = LayoutStorage.getEnabledLanguages(this)
         val thumb = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(Ui.FIRE_1, Color.parseColor("#BDC1C6"))
+            intArrayOf(Ui.ACCENT, Ui.TEXT_SECONDARY)
         )
         val track = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(Color.parseColor("#66FFC107"), Color.parseColor("#33FFFFFF"))
+            intArrayOf(Ui.withAlpha(Ui.ACCENT, 0x66), Ui.RIM)
         )
         Languages.order.forEach { l ->
             val sw = SwitchCompat(this).apply {

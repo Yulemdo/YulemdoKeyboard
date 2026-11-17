@@ -40,7 +40,7 @@ class EditorGridView @JvmOverloads constructor(
     private val cellHeightPx = 42f * density
 
     private val gridPaint = Paint().apply {
-        color = Color.parseColor("#1AFFFFFF")
+        color = Ui.GRID_LINE
         style = Paint.Style.STROKE
         strokeWidth = 1f
     }
@@ -181,7 +181,7 @@ class EditorGridView @JvmOverloads constructor(
     private fun createKeyView(name: String): TextView {
         val tv = TextView(context)
         tv.text = name
-        tv.setTextColor(Color.WHITE)
+        tv.setTextColor(Ui.TEXT_PRIMARY)
         tv.background = Ui.glass(context, 8)
         tv.gravity = Gravity.CENTER
         tv.maxLines = 1

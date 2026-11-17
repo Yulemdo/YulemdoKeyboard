@@ -34,19 +34,15 @@ class IntroActivity : AppCompatActivity() {
     private var nextBtn: TextView? = null
     private var hintView: TextView? = null
 
-    private val fireStart = Color.parseColor("#FFFF3D00")
-    private val fireEnd = Color.parseColor("#FFFFC107")
-
     private fun px(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Ui.applyTheme(this)
+        page = savedInstanceState?.getInt("page") ?: 0   // rejim almashganda sahifa saqlanadi
 
         val root = FrameLayout(this)
-        root.background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(Color.parseColor("#2B1200"), Color.parseColor("#0D0D0D"), Color.parseColor("#2A1F00"))
-        )
+        root.background = Ui.appBackground(this)
         val scroll = ScrollView(this)
         scroll.isFillViewport = true
         content = LinearLayout(this).apply {
@@ -56,6 +52,10 @@ class IntroActivity : AppCompatActivity() {
         }
         scroll.addView(content, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         root.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        // burchakda matnsiz rejim tugmasi (quyosh / oy)
+        root.addView(Ui.themeToggle(this), FrameLayout.LayoutParams(px(40), px(40), Gravity.TOP or Gravity.END).apply {
+            topMargin = px(14); marginEnd = px(14)
+        })
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -68,6 +68,11 @@ class IntroActivity : AppCompatActivity() {
         render()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt("page", page)
+    }
+
     private fun render() {
         content.removeAllViews()
         if (page == 0) renderLanguage() else renderStep()
@@ -78,7 +83,7 @@ class IntroActivity : AppCompatActivity() {
     // ===== 0-sahifa: til tanlash =====
     private fun renderLanguage() {
         content.addView(gradientText("Yulemdo", 38f))
-        content.addView(text("Tilni tanlang · Выберите язык · Choose language · Tildi saylań", 14f, "#B3FFFFFF").apply {
+        content.addView(text("Tilni tanlang · Выберите язык · Choose language · Tildi saylań", 14f, Ui.TEXT_SECONDARY).apply {
             gravity = Gravity.CENTER
             setPadding(0, px(10), 0, px(28))
         })
@@ -106,7 +111,7 @@ class IntroActivity : AppCompatActivity() {
                 render()
             }
         }
-        row.addView(text(label, 19f, "#FFFFFF").apply { typeface = Typeface.DEFAULT_BOLD },
+        row.addView(text(label, 19f, Ui.TEXT_PRIMARY).apply { typeface = Typeface.DEFAULT_BOLD },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         if (badge.isNotEmpty()) row.addView(gradientText(badge, 16f))
         row.layoutParams = LinearLayout.LayoutParams(-1, px(64)).apply { topMargin = px(12) }
@@ -130,7 +135,7 @@ class IntroActivity : AppCompatActivity() {
             background = glass(20)
             setPadding(px(20), px(20), px(20), px(20))
         }
-        card.addView(text(body, 16f, "#EBFFFFFF").apply { setLineSpacing(0f, 1.25f) })
+        card.addView(text(body, 16f, Ui.TEXT_PRIMARY).apply { setLineSpacing(0f, 1.25f) })
         content.addView(card, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = px(24)
         })
@@ -160,7 +165,7 @@ class IntroActivity : AppCompatActivity() {
         }
         hintView = null
         if (page == 2 || page == 3) {
-            hintView = text(lockedHint(page), 13f, "#FFC107").apply {
+            hintView = text(lockedHint(page), 13f, Ui.ACCENT).apply {
                 gravity = Gravity.CENTER
                 setPadding(0, px(12), 0, 0)
             }
@@ -220,23 +225,15 @@ class IntroActivity : AppCompatActivity() {
         else -> if (p == 2) "Davom etiş uçun avval klaviaturani yoqing" else "Davom etiş uçun avval klaviaturani tanlang"
     }
 
-    /** Keyingi tugmani faollashtiradi yoki kulrang qilib o'chirib qo'yadi. */
+    /** Keyingi tugmani faollashtiradi yoki xiralashtirib o'chirib qo'yadi. */
     private fun updateNextState() {
         if (page == 0) return
         val btn = nextBtn ?: return
         val ok = isStepDone(page)
         btn.isEnabled = ok
-        if (ok) {
-            btn.setTextColor(Color.WHITE)
-            btn.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(fireStart, fireEnd))
-                .apply { cornerRadius = px(27).toFloat() }
-        } else {
-            btn.setTextColor(Color.parseColor("#80FFFFFF"))
-            btn.background = GradientDrawable().apply {
-                cornerRadius = px(27).toFloat()
-                setColor(Color.parseColor("#55808080"))
-            }
-        }
+        btn.alpha = if (ok) 1f else 0.45f
+        btn.setTextColor(if (ok) Ui.ACCENT else Ui.TEXT_SECONDARY)
+        btn.background = Ui.glass(this, 27, accent = ok)
         hintView?.visibility = if (ok) View.GONE else View.VISIBLE
     }
 
@@ -261,39 +258,28 @@ class IntroActivity : AppCompatActivity() {
     }
 
     // ===== Yordamchi view'lar =====
-    private fun text(s: String, sp: Float, color: String) = TextView(this).apply {
+    private fun text(s: String, sp: Float, color: Int) = TextView(this).apply {
         text = s
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
-        setTextColor(Color.parseColor(color))
+        setTextColor(color)
     }
 
     private fun gradientText(s: String, sp: Float) = TextView(this).apply {
         text = s
         setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(fireEnd)
-        val w = paint.measureText(s)
-        paint.shader = LinearGradient(0f, 0f, w, 0f, fireStart, fireEnd, Shader.TileMode.CLAMP)
+        setTextColor(Ui.ACCENT)
     }
 
-    private fun glass(radiusDp: Int) = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(Color.parseColor("#3DFFFFFF"), Color.parseColor("#14FFFFFF"))
-    ).apply {
-        cornerRadius = px(radiusDp).toFloat()
-        setStroke(px(1), Color.parseColor("#33FFFFFF"))
-    }
+    private fun glass(radiusDp: Int) = Ui.glass(this, radiusDp)
 
     private fun pill(label: String, filled: Boolean, onClick: () -> Unit) = TextView(this).apply {
         text = label
         gravity = Gravity.CENTER
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         typeface = Typeface.DEFAULT_BOLD
-        setTextColor(Color.WHITE)
-        background = if (filled) {
-            GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(fireStart, fireEnd))
-                .apply { cornerRadius = px(27).toFloat() }
-        } else glass(27)
+        setTextColor(if (filled) Ui.ACCENT else Ui.TEXT_PRIMARY)
+        background = Ui.glass(this@IntroActivity, 27, accent = filled)
         setOnClickListener { onClick() }
     }
 
@@ -308,7 +294,7 @@ class IntroActivity : AppCompatActivity() {
             val d = View(this)
             d.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(if (i == page) fireEnd else Color.parseColor("#33FFFFFF"))
+                setColor(if (i == page) Ui.ACCENT else Ui.RIM)
             }
             row.addView(d, LinearLayout.LayoutParams(px(if (i == page) 10 else 7), px(if (i == page) 10 else 7)).apply {
                 marginStart = px(4); marginEnd = px(4)
